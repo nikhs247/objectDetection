@@ -32,3 +32,9 @@ RUN cmake \
     make install 
 
 RUN go get -u -d gocv.io/x/gocv
+
+ENV PKG_CONFIG_PATH=/usr/local/lib/pkgconfig
+ENV LD_LIBRARY_PATH=/usr/local/lib
+ENV CGO_CPPFLAGS=-I/usr/local/include
+ENV CGO_XXFLAGS="--std=c++1z"
+ENV CGO_LDFLAGS="-L/usr/local/lib -lopencv_core -lopencv_face -lopencv_videoio -lopencv_imgproc -lopencv_highgui -lopencv_imgcodecs -lopencv_objdetect -lopencv_features2d -lopencv_video -lopencv_dnn -lopencv_xfeatures2d -lopencv_plot -lopencv_tracking"
