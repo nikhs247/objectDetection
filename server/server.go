@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"image"
@@ -42,7 +41,7 @@ func performDetection(frame *gocv.Mat, results gocv.Mat) {
 	}
 }
 
-func (ts *TaskServer) SendRecvImage(ctx context.Context, stream clientToTask.RpcClientToCargo_SendRecvImageServer) error {
+func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToCargo_SendRecvImageServer) error {
 
 	model := "server/data/frozen_inference_graph.pb"
 	config := "server/data/ssd_mobilenet_v1.pbtxt"
@@ -127,6 +126,6 @@ func main() {
 	ip := os.Args[1]
 	listenPort := os.Args[2]
 
-	ts := TaskServer{IP: ip, ListenPort: listenPort}
+	ts := &TaskServer{IP: ip, ListenPort: listenPort}
 	ts.ListenRoutine()
 }

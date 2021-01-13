@@ -26,10 +26,10 @@ func StartStreaming(taskIP string, taskPort string, deviceID int, wg *sync.WaitG
 
 	service := clientToTask.NewRpcClientToCargoClient(conn)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+	// ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	// defer cancel()
 
-	stream, err := service.SendRecvImage(ctx)
+	stream, err := service.SendRecvImage(context.Background())
 	if err != nil {
 		log.Fatalf("Client stide creation failed: %v", err)
 	}
@@ -73,7 +73,7 @@ func StartStreaming(taskIP string, taskPort string, deviceID int, wg *sync.WaitG
 			if window.WaitKey(1) >= 0 {
 				break
 			}
-			fmt.Println("%d", counter.Rate())
+			fmt.Printf("%d\n", counter.Rate())
 		}
 	}()
 

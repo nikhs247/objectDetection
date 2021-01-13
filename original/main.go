@@ -101,7 +101,7 @@ func main() {
 		if window.WaitKey(1) >= 0 {
 			break
 		}
-		fmt.Println("%d", counter.Rate())
+		fmt.Printf("%d", counter.Rate())
 	}
 }
 
