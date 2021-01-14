@@ -43,7 +43,7 @@ func StartStreaming(taskIP string, taskPort string, deviceID int, wg *sync.WaitG
 	// defer webcam.Close()
 
 	// open video to capture
-	videoPath := "client/video/vid.avi"
+	videoPath := "video/vid.avi"
 	video, err := gocv.VideoCaptureFile(videoPath)
 	if err != nil {
 		fmt.Printf("Error opening video capture file: %s\n", videoPath)
