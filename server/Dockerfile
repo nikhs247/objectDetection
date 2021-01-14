@@ -1,10 +1,7 @@
 FROM nikhs247/gocv:latest
 
 WORKDIR /app
-ADD go.mod go.sum /app/
-RUN go clean -modcache
+ADD . /app/
 RUN go mod download
-RUN go mod tidy
-ADD server /app/server
-RUN go build -o main server/server.go
+RUN go build -o main server.go
 ENTRYPOINT ["./main localhost 8080"]
