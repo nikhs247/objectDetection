@@ -35,12 +35,21 @@ func StartStreaming(taskIP string, taskPort string, deviceID int, wg *sync.WaitG
 	}
 
 	// open capture device
-	webcam, err := gocv.OpenVideoCapture(deviceID)
+	// webcam, err := gocv.OpenVideoCapture(deviceID)
+	// if err != nil {
+	// 	fmt.Printf("Error opening video capture device: %v\n", deviceID)
+	// 	return
+	// }
+	// defer webcam.Close()
+
+	// open video to capture
+	videoPath := "client/video/vid.avi"
+	video, err := gocv.VideoCaptureFile(videoPath)
 	if err != nil {
-		fmt.Printf("Error opening video capture device: %v\n", deviceID)
+		fmt.Printf("Error opening video capture file: %s\n", videoPath)
 		return
 	}
-	defer webcam.Close()
+	defer video.Close()
 
 	waitc := make(chan struct{})
 	go func() {
@@ -80,8 +89,10 @@ func StartStreaming(taskIP string, taskPort string, deviceID int, wg *sync.WaitG
 	img := gocv.NewMat()
 	defer img.Close()
 	for {
-		if ok := webcam.Read(&img); !ok {
-			fmt.Printf("Device closed: %v\n", deviceID)
+		// if ok := webcam.Read(&img); !ok {
+		if ok := video.Read(&img); !ok {
+			// fmt.Printf("Device closed: %v\n", deviceID)
+			fmt.Printf("Video closed: %v\n", videoPath)
 			break
 		}
 		if img.Empty() {
