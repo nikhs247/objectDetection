@@ -4,4 +4,4 @@ WORKDIR /app
 ADD . /app/
 RUN go mod download
 RUN go build -o main server.go
-ENTRYPOINT ["./main localhost 8080"]
+ENTRYPOINT ["./main"]
