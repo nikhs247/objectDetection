@@ -16,34 +16,107 @@ import (
 	"google.golang.org/grpc"
 )
 
-func StartStreaming(taskIP string, taskPort string, deviceID int, wg *sync.WaitGroup) {
+const nMultiConn = 3
+
+type ClientInfo struct {
+	appManagerIP    string
+	appManagerPort  string
+	serverIPs       []string
+	serverPorts     []string
+	conns           map[string]*grpc.ClientConn
+	service         map[string]clientToTask.RpcClientToCargoClient
+	stream          map[string]clientToTask.RpcClientToCargo_SendRecvImageClient
+	mutexBestServer *sync.Mutex
+	taskIP          string
+	taskPort        string
+	newServer       bool
+}
+
+func Init() *ClientInfo {
+	var ci ClientInfo
+	ci.serverIPs = make([]string, nMultiConn)
+	ci.serverPorts = make([]string, nMultiConn)
+	ci.conns = make(map[string]*grpc.ClientConn, nMultiConn)
+	ci.service = make(map[string]clientToTask.RpcClientToCargoClient, nMultiConn)
+	ci.newServer = false
+
+	return &ci
+}
+
+func (ci *ClientInfo) PeriodicFuncCalls() {
+	uptimeTicker := time.NewTicker(5 * time.Second)
+	// dateTicker := time.NewTicker(10 * time.Second)
+
+	for {
+		select {
+		case <-uptimeTicker.C:
+			ci.IdentifyBestServer()
+		}
+	}
+}
+
+func (ci *ClientInfo) IdentifyBestServer() {
+	img := gocv.IMRead("data/test/Anthony_Fauci.jpg", gocv.IMReadColor)
+	dims := img.Size()
+	data := img.ToBytes()
+	mattype := int32(img.Type())
+	imgData := clientToTask.ImageData{
+		Width:   int32(dims[0]),
+		Height:  int32(dims[1]),
+		MatType: mattype,
+		Image:   data,
+		ImageID: 123,
+	}
+	prevElapsedTime := time.Duration(0)
+	var taskIP string
+	var taskPort string
+	for i := 0; i < nMultiConn; i++ {
+		start := time.Now()
+		for j := 0; j < 3; j++ {
+			_, err := ci.service[ci.serverIPs[i]+":"+ci.serverPorts[i]].TestPerformance(context.Background(), &imgData)
+			if err != nil {
+				log.Fatalf("Error sending test image to %s:%v", ci.serverIPs[i]+":"+ci.serverPorts[i], err)
+			}
+		}
+		elapsedTime := time.Since(start)
+		if prevElapsedTime > elapsedTime {
+			prevElapsedTime = elapsedTime
+			taskIP = ci.serverIPs[i]
+			taskPort = ci.serverPorts[i]
+		}
+	}
+	ci.mutexBestServer.Lock()
+	ci.taskIP = taskIP
+	ci.taskPort = taskPort
+	ci.newServer = true
+	ci.mutexBestServer.Unlock()
+
+}
+
+func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 	defer wg.Done()
-	conn, err := grpc.Dial(taskIP+":"+taskPort, grpc.WithInsecure())
-	if err != nil {
-		log.Fatalf("Connection to server failed: %v", err)
+
+	taskIP := ci.serverIPs[0]
+	taskPort := ci.serverPorts[0]
+
+	// create connection to all nMultConn servers
+	for i := 0; i < nMultiConn; i++ {
+		key := ci.serverIPs[i] + ":" + ci.serverPorts[i]
+		conn, err := grpc.Dial(key, grpc.WithInsecure())
+		if err != nil {
+			log.Fatalf("Connection to server failed: %v", err)
+		}
+		ci.conns[key] = conn
+		ci.service[key] = clientToTask.NewRpcClientToCargoClient(conn)
+		stream, err := ci.service[key].SendRecvImage(context.Background())
+		if err != nil {
+			log.Fatalf("Client stide creation failed: %v", err)
+		}
+		ci.stream[key] = stream
 	}
-	defer conn.Close()
-
-	service := clientToTask.NewRpcClientToCargoClient(conn)
-
-	// ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	// defer cancel()
-
-	stream, err := service.SendRecvImage(context.Background())
-	if err != nil {
-		log.Fatalf("Client stide creation failed: %v", err)
-	}
-
-	// open capture device
-	// webcam, err := gocv.OpenVideoCapture(deviceID)
-	// if err != nil {
-	// 	fmt.Printf("Error opening video capture device: %v\n", deviceID)
-	// 	return
-	// }
-	// defer webcam.Close()
 
 	// open video to capture
-	videoPath := "video/vid.avi"
+	videoPath := "data/video/vid.avi"
 	video, err := gocv.VideoCaptureFile(videoPath)
 	if err != nil {
 		fmt.Printf("Error opening video capture file: %s\n", videoPath)
@@ -57,6 +130,7 @@ func StartStreaming(taskIP string, taskPort string, deviceID int, wg *sync.WaitG
 		// open display window
 		window := gocv.NewWindow("Object Detect")
 		defer window.Close()
+
 		for {
 			img, err := stream.Recv()
 			if err == io.EOF {
@@ -103,6 +177,7 @@ func StartStreaming(taskIP string, taskPort string, deviceID int, wg *sync.WaitG
 		data := img.ToBytes()
 		mattype := int32(img.Type())
 
+		stream := ci.stream[taskIP+":"+taskPort]
 		err = stream.Send(&clientToTask.ImageData{
 			Width:   int32(dims[0]),
 			Height:  int32(dims[1]),
