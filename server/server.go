@@ -43,8 +43,8 @@ func performDetection(frame *gocv.Mat, results gocv.Mat) {
 
 func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToCargo_SendRecvImageServer) error {
 
-	model := "server/data/frozen_inference_graph.pb"
-	config := "server/data/ssd_mobilenet_v1.pbtxt"
+	model := "data/frozen_inference_graph.pb"
+	config := "data/ssd_mobilenet_v1.pbtxt"
 	backend := gocv.NetBackendDefault
 	target := gocv.NetTargetCPU
 	// open DNN object tracking model
