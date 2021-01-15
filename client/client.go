@@ -22,7 +22,7 @@ type ClientInfo struct {
 	appManagerIP      string
 	appManagerPort    string
 	appManagerConn    *grpc.ClientConn
-	appManagerService clientToAppMgr.RpcClientToAppMgrClient
+	appManagerService clientToAppMgr.ApplicationManagerClient
 	serverIPs         [nMultiConn]string
 	serverPorts       [nMultiConn]string
 	backupServers     map[string]bool
