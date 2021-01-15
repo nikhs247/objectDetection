@@ -27,6 +27,7 @@ type ClientInfo struct {
 	service         map[string]clientToTask.RpcClientToCargoClient
 	stream          map[string]clientToTask.RpcClientToCargo_SendRecvImageClient
 	mutexBestServer *sync.Mutex
+	mutexMapAccess  *sync.Mutex
 	taskIP          string
 	taskPort        string
 	newServer       bool
@@ -46,6 +47,7 @@ func Init(appMgrIP string, appMgrPort string) *ClientInfo {
 	ci.service = make(map[string]clientToTask.RpcClientToCargoClient, nMultiConn)
 	ci.stream = make(map[string]clientToTask.RpcClientToCargo_SendRecvImageClient, nMultiConn)
 	ci.mutexBestServer = &sync.Mutex{}
+	ci.mutexMapAccess = &sync.Mutex{}
 	ci.newServer = false
 
 	return &ci
@@ -91,6 +93,7 @@ func (ci *ClientInfo) PeriodicFuncCalls(wg *sync.WaitGroup) {
 }
 
 func (ci *ClientInfo) IdentifyBestServer() {
+	startIBS := time.Now()
 	img := gocv.IMRead("data/test/Anthony_Fauci.jpg", gocv.IMReadColor)
 	dims := img.Size()
 	data := img.ToBytes()
@@ -103,8 +106,8 @@ func (ci *ClientInfo) IdentifyBestServer() {
 		ImageID: 123,
 	}
 	prevElapsedTime := time.Duration(0)
-	var taskIP string
-	var taskPort string
+	taskIP := ci.taskIP
+	taskPort := ci.taskPort
 	for i := 0; i < nMultiConn; i++ {
 		start := time.Now()
 		for j := 0; j < 3; j++ {
@@ -125,6 +128,9 @@ func (ci *ClientInfo) IdentifyBestServer() {
 	ci.taskPort = taskPort
 	ci.newServer = true
 	ci.mutexBestServer.Unlock()
+
+	fmt.Printf("time taken %v\n", time.Since(startIBS))
+	fmt.Println("*****************Identified servers********************")
 
 }
 
@@ -164,8 +170,10 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 	receiveData := make(map[int]string, 0)
 
 	nImagesReceived := 0
+	var counter *ratecounter.RateCounter
+	start := time.Time{}
 	go func() {
-		counter := ratecounter.NewRateCounter(1 * time.Second)
+
 		// open display window
 		window := gocv.NewWindow("Object Detect")
 		defer window.Close()
@@ -174,8 +182,17 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 			if _, ok := receiveData[nImagesReceived]; !ok {
 				continue
 			}
+
 			stream := ci.stream[receiveData[nImagesReceived]]
 			img, err := stream.Recv()
+			if nImagesReceived == 0 {
+				counter = ratecounter.NewRateCounter(1 * time.Second)
+				// fmt.Printf("Frame latency - %v", time.Since(start))
+			}
+			if nImagesReceived == 20 {
+				// counter = ratecounter.NewRateCounter(1 * time.Second)
+				fmt.Printf("Frame latency - %v", time.Since(start))
+			}
 			// if err == io.EOF {
 			// 	close(waitc)
 			// 	return
@@ -183,7 +200,9 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 			if err != nil {
 				log.Fatalf("Image receive from app failed: %v", err)
 			}
+			ci.mutexMapAccess.Lock()
 			delete(receiveData, nImagesReceived)
+			ci.mutexMapAccess.Unlock()
 			width := img.GetWidth()
 			height := img.GetHeight()
 			matType := img.GetMatType()
@@ -199,17 +218,20 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 			if window.WaitKey(1) >= 0 {
 				break
 			}
-			fmt.Printf("%d\n", counter.Rate())
+
 			if _, ok := ci.backupServers[receiveData[nImagesReceived]]; ok {
 				if ci.lastFrameLoc[receiveData[nImagesReceived]] == nImagesReceived {
+					fmt.Printf("Deleted  %s entry\n", receiveData[nImagesReceived])
 					ci.conns[receiveData[nImagesReceived]].Close()
 					delete(ci.service, receiveData[nImagesReceived])
 					delete(ci.stream, receiveData[nImagesReceived])
 					delete(ci.conns, receiveData[nImagesReceived])
 					delete(ci.lastFrameLoc, receiveData[nImagesReceived])
+
 				}
 			}
 			nImagesReceived++
+			fmt.Printf("%d\n", counter.Rate())
 		}
 	}()
 
@@ -239,9 +261,17 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 			ci.newServer = false
 		}
 		ci.mutexBestServer.Unlock()
+		ci.mutexMapAccess.Lock()
 		receiveData[nImagesSent] = taskIP + ":" + taskPort
+		ci.mutexMapAccess.Unlock()
 		ci.lastFrameLoc[taskIP+":"+taskPort] = nImagesSent
+		// fmt.Printf("Received frame Map size %d\n", len(receiveData))
+		// fmt.Printf("Stream Map size %d\n", len(ci.stream))
+		// fmt.Printf("Stream address - %s\n", taskIP+":"+taskPort)
 		stream := ci.stream[taskIP+":"+taskPort]
+		if nImagesSent == 20 {
+			start = time.Now()
+		}
 		err = stream.Send(&clientToTask.ImageData{
 			Width:   int32(dims[0]),
 			Height:  int32(dims[1]),

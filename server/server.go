@@ -10,6 +10,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"time"
 
 	"github.com/nikhs247/objectDetection/comms/rpc/clientToTask"
 	"gocv.io/x/gocv"
@@ -121,6 +122,7 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToCargo_SendRec
 
 	for {
 		img, err := stream.Recv()
+		start := time.Now()
 		if err == io.EOF {
 			return nil
 		}
@@ -156,6 +158,7 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToCargo_SendRec
 		imgdata := mat.ToBytes()
 		mattype := int32(mat.Type())
 
+		fmt.Printf("Processing time %v\n", time.Since(start))
 		err = stream.Send(&clientToTask.ImageData{
 			Width:   int32(dims[0]),
 			Height:  int32(dims[1]),
