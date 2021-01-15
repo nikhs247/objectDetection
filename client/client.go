@@ -21,10 +21,11 @@ type ClientInfo struct {
 	appManagerPort  string
 	serverIPs       []string
 	serverPorts     []string
+	backupServers   map[string]bool
+	lastFrameLoc    map[string]int
 	conns           map[string]*grpc.ClientConn
 	service         map[string]clientToTask.RpcClientToCargoClient
 	stream          map[string]clientToTask.RpcClientToCargo_SendRecvImageClient
-	lastframeLoc    map[string]int
 	mutexBestServer *sync.Mutex
 	taskIP          string
 	taskPort        string
@@ -37,21 +38,42 @@ func Init(appMgrIP string, appMgrPort string) *ClientInfo {
 	ci.appManagerPort = appMgrPort
 	ci.serverIPs = make([]string, nMultiConn)
 	ci.serverPorts = make([]string, nMultiConn)
+	ci.backupServers = make(map[string]bool, nMultiConn)
+	ci.lastFrameLoc = make(map[string]int, nMultiConn)
 	ci.conns = make(map[string]*grpc.ClientConn, nMultiConn)
 	ci.service = make(map[string]clientToTask.RpcClientToCargoClient, nMultiConn)
-	ci.lastframeLoc = make(map[string]int)
+	ci.stream = make(map[string]clientToTask.RpcClientToCargo_SendRecvImageClient, nMultiConn)
 	ci.newServer = false
 
 	return &ci
 }
 
-func (ci *ClientInfo) QueryListFromAppManager() ([]string, []string, error) {
+func (ci *ClientInfo) QueryListFromAppManager() {
 	ips := []string{"1", "2", "3"}
 	ports := []string{"1", "2", "3"}
-	return ips, ports, nil
+	for i := 0; i < nMultiConn; i++ {
+		found := false
+		for j := 0; j < len(ips); j++ {
+			if ips[j] == ci.serverIPs[i] && ports[j] == ci.serverPorts[i] {
+				found = true
+				break
+			}
+		}
+		if !found {
+			ci.backupServers[ci.serverIPs[i]+":"+ci.serverPorts[i]] = true
+		}
+	}
+	ci.mutexBestServer.Lock()
+	if ci.taskIP != ips[0] && ci.taskPort != ports[0] {
+		ci.taskIP = ips[0]
+		ci.taskPort = ports[0]
+		ci.newServer = true
+	}
+	ci.mutexBestServer.Unlock()
 }
 
 func (ci *ClientInfo) PeriodicFuncCalls(wg *sync.WaitGroup) {
+	defer wg.Done()
 	identifyBestServerTicker := time.NewTicker(5 * time.Second)
 	queryListTicker := time.NewTicker(10 * time.Second)
 
@@ -157,7 +179,7 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 			if err != nil {
 				log.Fatalf("Image receive from app failed: %v", err)
 			}
-
+			delete(receiveData, nImagesReceived)
 			width := img.GetWidth()
 			height := img.GetHeight()
 			matType := img.GetMatType()
@@ -174,6 +196,15 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 				break
 			}
 			fmt.Printf("%d\n", counter.Rate())
+			if _, ok := ci.backupServers[receiveData[nImagesReceived]]; ok {
+				if ci.lastFrameLoc[receiveData[nImagesReceived]] == nImagesReceived {
+					ci.conns[receiveData[nImagesReceived]].Close()
+					delete(ci.service, receiveData[nImagesReceived])
+					delete(ci.stream, receiveData[nImagesReceived])
+					delete(ci.conns, receiveData[nImagesReceived])
+					delete(ci.lastFrameLoc, receiveData[nImagesReceived])
+				}
+			}
 			nImagesReceived++
 		}
 	}()
@@ -205,7 +236,7 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 		}
 		ci.mutexBestServer.Unlock()
 		receiveData[nImagesSent] = taskIP + ":" + taskPort
-		ci.lastframeLoc[taskIP+":"+taskPort] = nImagesSent
+		ci.lastFrameLoc[taskIP+":"+taskPort] = nImagesSent
 		stream := ci.stream[taskIP+":"+taskPort]
 		err = stream.Send(&clientToTask.ImageData{
 			Width:   int32(dims[0]),
