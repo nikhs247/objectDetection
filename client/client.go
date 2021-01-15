@@ -54,13 +54,15 @@ func Init(appMgrIP string, appMgrPort string) *ClientInfo {
 
 	var opts []grpc.DialOption
 	opts = append(opts, grpc.WithInsecure())
-	opts = append(opts, grpc.WithBlock())
+	// opts = append(opts, grpc.WithBlock())
+	fmt.Println("Dialing to app mgr " + appMgrIP + ":" + appMgrPort)
 	conn, err := grpc.Dial(appMgrIP+":"+appMgrPort, opts...)
 	if err != nil {
 		log.Fatalf("fail to dial: %v", err)
 	}
+	fmt.Println("Completed connection to app mgr")
 	ci.appManagerConn = conn
-	ci.appManagerService = clientToAppMgr.NewRpcClientToAppMgrClient(conn)
+	ci.appManagerService = clientToAppMgr.NewApplicationManagerClient(conn)
 
 	return &ci
 }
@@ -82,9 +84,11 @@ func (ci *ClientInfo) QueryListFromAppManager() {
 	taskList := list.GetTaskList()
 	ips := [3]string{taskList[0].GetIp(), taskList[1].GetIp(), taskList[2].GetIp()}
 	ports := [3]string{taskList[0].GetPort(), taskList[1].GetPort(), taskList[2].GetPort()}
+	fmt.Printf("Servers notif : %v\n", ips)
 	if ci.serverIPs[0] == "" {
 		ci.serverIPs = ips
 		ci.serverPorts = ports
+		fmt.Printf("Servers if : %v\n", ips)
 		ci.taskIP = ips[0]
 		ci.taskPort = ports[0]
 		return
