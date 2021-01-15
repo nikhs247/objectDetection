@@ -3,10 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
-	"io"
 	"log"
 	"os"
-	"strconv"
 	"sync"
 	"time"
 
@@ -32,8 +30,10 @@ type ClientInfo struct {
 	newServer       bool
 }
 
-func Init() *ClientInfo {
+func Init(appMgrIP string, appMgrPort string) *ClientInfo {
 	var ci ClientInfo
+	ci.appManagerIP = appMgrIP
+	ci.appManagerPort = appMgrPort
 	ci.serverIPs = make([]string, nMultiConn)
 	ci.serverPorts = make([]string, nMultiConn)
 	ci.conns = make(map[string]*grpc.ClientConn, nMultiConn)
@@ -43,14 +43,22 @@ func Init() *ClientInfo {
 	return &ci
 }
 
-func (ci *ClientInfo) PeriodicFuncCalls() {
-	uptimeTicker := time.NewTicker(5 * time.Second)
-	// dateTicker := time.NewTicker(10 * time.Second)
+func (ci *ClientInfo) QueryListFromAppManager() ([]string, []string, error) {
+	ips := []string{"1", "2", "3"}
+	ports := []string{"1", "2", "3"}
+	return ips, ports, nil
+}
+
+func (ci *ClientInfo) PeriodicFuncCalls(wg *sync.WaitGroup) {
+	identifyBestServerTicker := time.NewTicker(5 * time.Second)
+	queryListTicker := time.NewTicker(10 * time.Second)
 
 	for {
 		select {
-		case <-uptimeTicker.C:
+		case <-identifyBestServerTicker.C:
 			ci.IdentifyBestServer()
+		case <-queryListTicker.C:
+			ci.QueryListFromAppManager()
 		}
 	}
 }
@@ -125,6 +133,9 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 	defer video.Close()
 
 	waitc := make(chan struct{})
+
+	var receiveData map[int]string
+	nImagesReceived := 0
 	go func() {
 		counter := ratecounter.NewRateCounter(1 * time.Second)
 		// open display window
@@ -132,11 +143,15 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 		defer window.Close()
 
 		for {
-			img, err := stream.Recv()
-			if err == io.EOF {
-				close(waitc)
-				return
+			if _, ok := receiveData[nImagesReceived]; !ok {
+				continue
 			}
+			stream := ci.stream[receiveData[nImagesReceived]]
+			img, err := stream.Recv()
+			// if err == io.EOF {
+			// 	close(waitc)
+			// 	return
+			// }
 			if err != nil {
 				log.Fatalf("Image receive from app failed: %v", err)
 			}
@@ -157,11 +172,14 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 				break
 			}
 			fmt.Printf("%d\n", counter.Rate())
+			nImagesReceived++
 		}
 	}()
 
 	img := gocv.NewMat()
 	defer img.Close()
+
+	nImagesSent := 0
 	for {
 		// if ok := webcam.Read(&img); !ok {
 		if ok := video.Read(&img); !ok {
@@ -177,6 +195,14 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 		data := img.ToBytes()
 		mattype := int32(img.Type())
 
+		ci.mutexBestServer.Lock()
+		if ci.newServer {
+			taskIP = ci.taskIP
+			taskPort = ci.taskPort
+			ci.newServer = false
+		}
+		ci.mutexBestServer.Unlock()
+		receiveData[nImagesSent] = taskIP + ":" + taskPort
 		stream := ci.stream[taskIP+":"+taskPort]
 		err = stream.Send(&clientToTask.ImageData{
 			Width:   int32(dims[0]),
@@ -187,20 +213,20 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 		if err != nil {
 			log.Fatalf("Error sending image frame: %v", err)
 		}
+		nImagesSent++
 	}
 	<-waitc
 }
 
 func main() {
-	taskIP := os.Args[1]
-	taskPort := os.Args[2]
-	deviceID, err := strconv.Atoi(os.Args[3])
-	if err != nil {
-		log.Fatalf("Device ID conversion failed: %v", err)
-	}
+	appMgrIP := os.Args[1]
+	appMgrPort := os.Args[2]
 
+	ci := Init(appMgrIP, appMgrPort)
 	var wg sync.WaitGroup
 	wg.Add(1)
-	go StartStreaming(taskIP, taskPort, deviceID, &wg)
+	go ci.StartStreaming(&wg)
+	wg.Add(1)
+	go ci.PeriodicFuncCalls(&wg)
 	wg.Wait()
 }
