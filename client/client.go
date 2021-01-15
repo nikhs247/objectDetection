@@ -36,21 +36,24 @@ func Init(appMgrIP string, appMgrPort string) *ClientInfo {
 	var ci ClientInfo
 	ci.appManagerIP = appMgrIP
 	ci.appManagerPort = appMgrPort
-	ci.serverIPs = make([]string, nMultiConn)
-	ci.serverPorts = make([]string, nMultiConn)
+	// ci.serverIPs = make([]string, nMultiConn)
+	// ci.serverPorts = make([]string, nMultiConn)
+	ci.serverIPs = []string{"localhost", "localhost", "localhost"}
+	ci.serverPorts = []string{"8080", "8090", "8100"}
 	ci.backupServers = make(map[string]bool, nMultiConn)
 	ci.lastFrameLoc = make(map[string]int, nMultiConn)
 	ci.conns = make(map[string]*grpc.ClientConn, nMultiConn)
 	ci.service = make(map[string]clientToTask.RpcClientToCargoClient, nMultiConn)
 	ci.stream = make(map[string]clientToTask.RpcClientToCargo_SendRecvImageClient, nMultiConn)
+	ci.mutexBestServer = &sync.Mutex{}
 	ci.newServer = false
 
 	return &ci
 }
 
 func (ci *ClientInfo) QueryListFromAppManager() {
-	ips := []string{"1", "2", "3"}
-	ports := []string{"1", "2", "3"}
+	ips := []string{"localhost", "localhost", "localhost"}
+	ports := []string{"8080", "8090", "8100"}
 	for i := 0; i < nMultiConn; i++ {
 		found := false
 		for j := 0; j < len(ips); j++ {
@@ -158,7 +161,8 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 
 	waitc := make(chan struct{})
 
-	var receiveData map[int]string
+	receiveData := make(map[int]string, 0)
+
 	nImagesReceived := 0
 	go func() {
 		counter := ratecounter.NewRateCounter(1 * time.Second)
@@ -257,6 +261,7 @@ func main() {
 	appMgrPort := os.Args[2]
 
 	ci := Init(appMgrIP, appMgrPort)
+	ci.QueryListFromAppManager()
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go ci.StartStreaming(&wg)
