@@ -176,7 +176,7 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 			log.Fatalf("Connection to server failed: %v", err)
 		}
 		ci.conns[key] = conn
-		ci.service[key] = clientToTask.NewRpcClientToCargoClient(conn)
+		ci.service[key] = clientToTask.NewRpcClientToTaskClient(conn)
 		stream, err := ci.service[key].SendRecvImage(context.Background())
 		if err != nil {
 			log.Fatalf("Client stide creation failed: %v", err)
