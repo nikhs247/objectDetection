@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/nikhs247/objectDetection/comms/rpc/clientToAppMgr"
+	"github.com/nikhs247/objectDetection/comms/rpc/appcomm"
 	"github.com/nikhs247/objectDetection/comms/rpc/clientToTask"
 	"github.com/paulbellamy/ratecounter"
 	"gocv.io/x/gocv"
@@ -22,7 +22,7 @@ type ClientInfo struct {
 	appManagerIP      string
 	appManagerPort    string
 	appManagerConn    *grpc.ClientConn
-	appManagerService clientToAppMgr.ApplicationManagerClient
+	appManagerService appcomm.ApplicationManagerClient
 	serverIPs         [nMultiConn]string
 	serverPorts       [nMultiConn]string
 	backupServers     map[string]bool
@@ -62,20 +62,20 @@ func Init(appMgrIP string, appMgrPort string) *ClientInfo {
 	}
 	fmt.Println("Completed connection to app mgr")
 	ci.appManagerConn = conn
-	ci.appManagerService = clientToAppMgr.NewApplicationManagerClient(conn)
+	ci.appManagerService = appcomm.NewApplicationManagerClient(conn)
 
 	return &ci
 }
 
 func (ci *ClientInfo) QueryListFromAppManager() {
 
-	list, err := ci.appManagerService.QueryTaskList(context.Background(), &clientToAppMgr.Query{
-		ClientId: &clientToAppMgr.UUID{Value: strconv.Itoa(1)},
-		GeoLocation: &clientToAppMgr.Location{
+	list, err := ci.appManagerService.QueryTaskList(context.Background(), &appcomm.Query{
+		ClientId: &appcomm.UUID{Value: strconv.Itoa(1)},
+		GeoLocation: &appcomm.Location{
 			Lat: 1.1,
 			Lon: 1.1,
 		},
-		AppId: &clientToAppMgr.UUID{Value: strconv.Itoa(1)},
+		AppId: &appcomm.UUID{Value: strconv.Itoa(1)},
 	})
 	if err != nil {
 		log.Println(err)
