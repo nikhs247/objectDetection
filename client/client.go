@@ -24,6 +24,7 @@ type ClientInfo struct {
 	conns           map[string]*grpc.ClientConn
 	service         map[string]clientToTask.RpcClientToCargoClient
 	stream          map[string]clientToTask.RpcClientToCargo_SendRecvImageClient
+	lastframeLoc    map[string]int
 	mutexBestServer *sync.Mutex
 	taskIP          string
 	taskPort        string
@@ -38,6 +39,7 @@ func Init(appMgrIP string, appMgrPort string) *ClientInfo {
 	ci.serverPorts = make([]string, nMultiConn)
 	ci.conns = make(map[string]*grpc.ClientConn, nMultiConn)
 	ci.service = make(map[string]clientToTask.RpcClientToCargoClient, nMultiConn)
+	ci.lastframeLoc = make(map[string]int)
 	ci.newServer = false
 
 	return &ci
@@ -203,6 +205,7 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 		}
 		ci.mutexBestServer.Unlock()
 		receiveData[nImagesSent] = taskIP + ":" + taskPort
+		ci.lastframeLoc[taskIP+":"+taskPort] = nImagesSent
 		stream := ci.stream[taskIP+":"+taskPort]
 		err = stream.Send(&clientToTask.ImageData{
 			Width:   int32(dims[0]),
