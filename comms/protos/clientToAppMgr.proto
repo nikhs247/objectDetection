@@ -4,7 +4,7 @@ package clientToAppMgr;
 
 option go_package="github.com/nikhs247/objectDetection/comms/rpc/clientToAppMgr";
 
-    service rpcClientToAppMgr {
+    service ApplicationManager {
         rpc QueryTaskList (Query) returns (TaskList);
     }
 

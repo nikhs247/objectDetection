@@ -323,17 +323,17 @@ var file_clientToAppMgr_proto_rawDesc = []byte{
 	0x12, 0x30, 0x0a, 0x08, 0x74, 0x61, 0x73, 0x6b, 0x4c, 0x69, 0x73, 0x74, 0x18, 0x01, 0x20, 0x03,
 	0x28, 0x0b, 0x32, 0x14, 0x2e, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x54, 0x6f, 0x41, 0x70, 0x70,
 	0x4d, 0x67, 0x72, 0x2e, 0x54, 0x61, 0x73, 0x6b, 0x52, 0x08, 0x74, 0x61, 0x73, 0x6b, 0x4c, 0x69,
-	0x73, 0x74, 0x32, 0x55, 0x0a, 0x11, 0x72, 0x70, 0x63, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x54,
-	0x6f, 0x41, 0x70, 0x70, 0x4d, 0x67, 0x72, 0x12, 0x40, 0x0a, 0x0d, 0x51, 0x75, 0x65, 0x72, 0x79,
-	0x54, 0x61, 0x73, 0x6b, 0x4c, 0x69, 0x73, 0x74, 0x12, 0x15, 0x2e, 0x63, 0x6c, 0x69, 0x65, 0x6e,
-	0x74, 0x54, 0x6f, 0x41, 0x70, 0x70, 0x4d, 0x67, 0x72, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x1a,
-	0x18, 0x2e, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x54, 0x6f, 0x41, 0x70, 0x70, 0x4d, 0x67, 0x72,
-	0x2e, 0x54, 0x61, 0x73, 0x6b, 0x4c, 0x69, 0x73, 0x74, 0x42, 0x3e, 0x5a, 0x3c, 0x67, 0x69, 0x74,
-	0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x6e, 0x69, 0x6b, 0x68, 0x73, 0x32, 0x34, 0x37,
-	0x2f, 0x6f, 0x62, 0x6a, 0x65, 0x63, 0x74, 0x44, 0x65, 0x74, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e,
-	0x2f, 0x63, 0x6f, 0x6d, 0x6d, 0x73, 0x2f, 0x72, 0x70, 0x63, 0x2f, 0x63, 0x6c, 0x69, 0x65, 0x6e,
-	0x74, 0x54, 0x6f, 0x41, 0x70, 0x70, 0x4d, 0x67, 0x72, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f,
-	0x33,
+	0x73, 0x74, 0x32, 0x56, 0x0a, 0x12, 0x41, 0x70, 0x70, 0x6c, 0x69, 0x63, 0x61, 0x74, 0x69, 0x6f,
+	0x6e, 0x4d, 0x61, 0x6e, 0x61, 0x67, 0x65, 0x72, 0x12, 0x40, 0x0a, 0x0d, 0x51, 0x75, 0x65, 0x72,
+	0x79, 0x54, 0x61, 0x73, 0x6b, 0x4c, 0x69, 0x73, 0x74, 0x12, 0x15, 0x2e, 0x63, 0x6c, 0x69, 0x65,
+	0x6e, 0x74, 0x54, 0x6f, 0x41, 0x70, 0x70, 0x4d, 0x67, 0x72, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79,
+	0x1a, 0x18, 0x2e, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x54, 0x6f, 0x41, 0x70, 0x70, 0x4d, 0x67,
+	0x72, 0x2e, 0x54, 0x61, 0x73, 0x6b, 0x4c, 0x69, 0x73, 0x74, 0x42, 0x3e, 0x5a, 0x3c, 0x67, 0x69,
+	0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x6e, 0x69, 0x6b, 0x68, 0x73, 0x32, 0x34,
+	0x37, 0x2f, 0x6f, 0x62, 0x6a, 0x65, 0x63, 0x74, 0x44, 0x65, 0x74, 0x65, 0x63, 0x74, 0x69, 0x6f,
+	0x6e, 0x2f, 0x63, 0x6f, 0x6d, 0x6d, 0x73, 0x2f, 0x72, 0x70, 0x63, 0x2f, 0x63, 0x6c, 0x69, 0x65,
+	0x6e, 0x74, 0x54, 0x6f, 0x41, 0x70, 0x70, 0x4d, 0x67, 0x72, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74,
+	0x6f, 0x33,
 }
 
 var (
@@ -361,8 +361,8 @@ var file_clientToAppMgr_proto_depIdxs = []int32{
 	1, // 1: clientToAppMgr.Query.geoLocation:type_name -> clientToAppMgr.Location
 	0, // 2: clientToAppMgr.Query.appId:type_name -> clientToAppMgr.UUID
 	3, // 3: clientToAppMgr.TaskList.taskList:type_name -> clientToAppMgr.Task
-	2, // 4: clientToAppMgr.rpcClientToAppMgr.QueryTaskList:input_type -> clientToAppMgr.Query
-	4, // 5: clientToAppMgr.rpcClientToAppMgr.QueryTaskList:output_type -> clientToAppMgr.TaskList
+	2, // 4: clientToAppMgr.ApplicationManager.QueryTaskList:input_type -> clientToAppMgr.Query
+	4, // 5: clientToAppMgr.ApplicationManager.QueryTaskList:output_type -> clientToAppMgr.TaskList
 	5, // [5:6] is the sub-list for method output_type
 	4, // [4:5] is the sub-list for method input_type
 	4, // [4:4] is the sub-list for extension type_name
@@ -465,72 +465,72 @@ var _ grpc.ClientConnInterface
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion6
 
-// RpcClientToAppMgrClient is the client API for RpcClientToAppMgr service.
+// ApplicationManagerClient is the client API for ApplicationManager service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
-type RpcClientToAppMgrClient interface {
+type ApplicationManagerClient interface {
 	QueryTaskList(ctx context.Context, in *Query, opts ...grpc.CallOption) (*TaskList, error)
 }
 
-type rpcClientToAppMgrClient struct {
+type applicationManagerClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewRpcClientToAppMgrClient(cc grpc.ClientConnInterface) RpcClientToAppMgrClient {
-	return &rpcClientToAppMgrClient{cc}
+func NewApplicationManagerClient(cc grpc.ClientConnInterface) ApplicationManagerClient {
+	return &applicationManagerClient{cc}
 }
 
-func (c *rpcClientToAppMgrClient) QueryTaskList(ctx context.Context, in *Query, opts ...grpc.CallOption) (*TaskList, error) {
+func (c *applicationManagerClient) QueryTaskList(ctx context.Context, in *Query, opts ...grpc.CallOption) (*TaskList, error) {
 	out := new(TaskList)
-	err := c.cc.Invoke(ctx, "/clientToAppMgr.rpcClientToAppMgr/QueryTaskList", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/clientToAppMgr.ApplicationManager/QueryTaskList", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// RpcClientToAppMgrServer is the server API for RpcClientToAppMgr service.
-type RpcClientToAppMgrServer interface {
+// ApplicationManagerServer is the server API for ApplicationManager service.
+type ApplicationManagerServer interface {
 	QueryTaskList(context.Context, *Query) (*TaskList, error)
 }
 
-// UnimplementedRpcClientToAppMgrServer can be embedded to have forward compatible implementations.
-type UnimplementedRpcClientToAppMgrServer struct {
+// UnimplementedApplicationManagerServer can be embedded to have forward compatible implementations.
+type UnimplementedApplicationManagerServer struct {
 }
 
-func (*UnimplementedRpcClientToAppMgrServer) QueryTaskList(context.Context, *Query) (*TaskList, error) {
+func (*UnimplementedApplicationManagerServer) QueryTaskList(context.Context, *Query) (*TaskList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method QueryTaskList not implemented")
 }
 
-func RegisterRpcClientToAppMgrServer(s *grpc.Server, srv RpcClientToAppMgrServer) {
-	s.RegisterService(&_RpcClientToAppMgr_serviceDesc, srv)
+func RegisterApplicationManagerServer(s *grpc.Server, srv ApplicationManagerServer) {
+	s.RegisterService(&_ApplicationManager_serviceDesc, srv)
 }
 
-func _RpcClientToAppMgr_QueryTaskList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _ApplicationManager_QueryTaskList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(Query)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RpcClientToAppMgrServer).QueryTaskList(ctx, in)
+		return srv.(ApplicationManagerServer).QueryTaskList(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/clientToAppMgr.rpcClientToAppMgr/QueryTaskList",
+		FullMethod: "/clientToAppMgr.ApplicationManager/QueryTaskList",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RpcClientToAppMgrServer).QueryTaskList(ctx, req.(*Query))
+		return srv.(ApplicationManagerServer).QueryTaskList(ctx, req.(*Query))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-var _RpcClientToAppMgr_serviceDesc = grpc.ServiceDesc{
-	ServiceName: "clientToAppMgr.rpcClientToAppMgr",
-	HandlerType: (*RpcClientToAppMgrServer)(nil),
+var _ApplicationManager_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "clientToAppMgr.ApplicationManager",
+	HandlerType: (*ApplicationManagerServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "QueryTaskList",
-			Handler:    _RpcClientToAppMgr_QueryTaskList_Handler,
+			Handler:    _ApplicationManager_QueryTaskList_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
