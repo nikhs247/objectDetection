@@ -40,7 +40,7 @@ func Init(appMgrIP string, appMgrPort string) *ClientInfo {
 	// ci.serverIPs = make([]string, nMultiConn)
 	// ci.serverPorts = make([]string, nMultiConn)
 	ci.serverIPs = []string{"localhost", "localhost", "localhost"}
-	ci.serverPorts = []string{"8080", "8090", "8100"}
+	ci.serverPorts = []string{"8080", "8090", "8070"}
 	ci.backupServers = make(map[string]bool, nMultiConn)
 	ci.lastFrameLoc = make(map[string]int, nMultiConn)
 	ci.conns = make(map[string]*grpc.ClientConn, nMultiConn)
@@ -55,7 +55,7 @@ func Init(appMgrIP string, appMgrPort string) *ClientInfo {
 
 func (ci *ClientInfo) QueryListFromAppManager() {
 	ips := []string{"localhost", "localhost", "localhost"}
-	ports := []string{"8080", "8090", "8100"}
+	ports := []string{"8080", "8090", "8070"}
 	for i := 0; i < nMultiConn; i++ {
 		found := false
 		for j := 0; j < len(ips); j++ {
@@ -272,15 +272,20 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 		if nImagesSent == 20 {
 			start = time.Now()
 		}
+
+		t1 := time.Now()
 		err = stream.Send(&clientToTask.ImageData{
 			Width:   int32(dims[0]),
 			Height:  int32(dims[1]),
 			MatType: mattype,
 			Image:   data,
 		})
+
+		fmt.Printf("Send latency - %v\n", time.Since(t1))
 		if err != nil {
 			log.Fatalf("Error sending image frame: %v", err)
 		}
+
 		nImagesSent++
 	}
 	<-waitc
