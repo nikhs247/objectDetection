@@ -25,6 +25,7 @@ option go_package="github.com/nikhs247/objectDetection/comms/rpc/clientToAppMgr"
     
     message Task {
         string ip = 1;
+        string port = 2;
     }
     message TaskList {
         repeated Task taskList = 1;
