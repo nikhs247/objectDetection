@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
+	"github.com/nikhs247/objectDetection/comms/rpc/clientToAppMgr"
 	"github.com/nikhs247/objectDetection/comms/rpc/clientToTask"
 	"github.com/paulbellamy/ratecounter"
 	"gocv.io/x/gocv"
@@ -17,20 +19,22 @@ import (
 const nMultiConn = 3
 
 type ClientInfo struct {
-	appManagerIP    string
-	appManagerPort  string
-	serverIPs       []string
-	serverPorts     []string
-	backupServers   map[string]bool
-	lastFrameLoc    map[string]int
-	conns           map[string]*grpc.ClientConn
-	service         map[string]clientToTask.RpcClientToCargoClient
-	stream          map[string]clientToTask.RpcClientToCargo_SendRecvImageClient
-	mutexBestServer *sync.Mutex
-	mutexMapAccess  *sync.Mutex
-	taskIP          string
-	taskPort        string
-	newServer       bool
+	appManagerIP      string
+	appManagerPort    string
+	appManagerConn    *grpc.ClientConn
+	appManagerService clientToAppMgr.RpcClientToAppMgrClient
+	serverIPs         []string
+	serverPorts       []string
+	backupServers     map[string]bool
+	lastFrameLoc      map[string]int
+	conns             map[string]*grpc.ClientConn
+	service           map[string]clientToTask.RpcClientToTaskClient
+	stream            map[string]clientToTask.RpcClientToTask_SendRecvImageClient
+	mutexBestServer   *sync.Mutex
+	mutexMapAccess    *sync.Mutex
+	taskIP            string
+	taskPort          string
+	newServer         bool
 }
 
 func Init(appMgrIP string, appMgrPort string) *ClientInfo {
@@ -44,18 +48,42 @@ func Init(appMgrIP string, appMgrPort string) *ClientInfo {
 	ci.backupServers = make(map[string]bool, nMultiConn)
 	ci.lastFrameLoc = make(map[string]int, nMultiConn)
 	ci.conns = make(map[string]*grpc.ClientConn, nMultiConn)
-	ci.service = make(map[string]clientToTask.RpcClientToCargoClient, nMultiConn)
-	ci.stream = make(map[string]clientToTask.RpcClientToCargo_SendRecvImageClient, nMultiConn)
+	ci.service = make(map[string]clientToTask.RpcClientToTaskClient, nMultiConn)
+	ci.stream = make(map[string]clientToTask.RpcClientToTask_SendRecvImageClient, nMultiConn)
 	ci.mutexBestServer = &sync.Mutex{}
 	ci.mutexMapAccess = &sync.Mutex{}
 	ci.newServer = false
+
+	var opts []grpc.DialOption
+	opts = append(opts, grpc.WithInsecure())
+	opts = append(opts, grpc.WithBlock())
+	conn, err := grpc.Dial(appMgrIP+":"+appMgrPort, opts...)
+	if err != nil {
+		log.Fatalf("fail to dial: %v", err)
+	}
+	ci.appManagerConn = conn
+	ci.appManagerService = clientToAppMgr.NewRpcClientToAppMgrClient(conn)
 
 	return &ci
 }
 
 func (ci *ClientInfo) QueryListFromAppManager() {
-	ips := []string{"localhost", "localhost", "localhost"}
-	ports := []string{"8080", "8090", "8070"}
+
+	list, err := ci.appManagerService.QueryTaskList(context.Background(), &clientToAppMgr.Query{
+		ClientId: &clientToAppMgr.UUID{Value: strconv.Itoa(1)},
+		GeoLocation: &clientToAppMgr.Location{
+			Lat: 1.1,
+			Lon: 1.1,
+		},
+		AppId: &clientToAppMgr.UUID{Value: strconv.Itoa(1)},
+	})
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	taskList := list.GetTaskList()
+	ips := []string{taskList[0].GetIp(), taskList[1].GetIp(), taskList[2].GetIp()}
+	ports := []string{taskList[0].GetPort(), taskList[1].GetPort(), taskList[2].GetPort()}
 	for i := 0; i < nMultiConn; i++ {
 		found := false
 		for j := 0; j < len(ips); j++ {
