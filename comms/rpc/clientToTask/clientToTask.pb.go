@@ -121,22 +121,22 @@ var file_clientToTask_proto_rawDesc = []byte{
 	0x07, 0x6d, 0x61, 0x74, 0x54, 0x79, 0x70, 0x65, 0x12, 0x14, 0x0a, 0x05, 0x69, 0x6d, 0x61, 0x67,
 	0x65, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x05, 0x69, 0x6d, 0x61, 0x67, 0x65, 0x12, 0x18,
 	0x0a, 0x07, 0x69, 0x6d, 0x61, 0x67, 0x65, 0x49, 0x44, 0x18, 0x05, 0x20, 0x01, 0x28, 0x05, 0x52,
-	0x07, 0x69, 0x6d, 0x61, 0x67, 0x65, 0x49, 0x44, 0x32, 0xa2, 0x01, 0x0a, 0x10, 0x72, 0x70, 0x63,
-	0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x54, 0x6f, 0x43, 0x61, 0x72, 0x67, 0x6f, 0x12, 0x47, 0x0a,
-	0x0d, 0x53, 0x65, 0x6e, 0x64, 0x52, 0x65, 0x63, 0x76, 0x49, 0x6d, 0x61, 0x67, 0x65, 0x12, 0x17,
-	0x2e, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x54, 0x6f, 0x54, 0x61, 0x73, 0x6b, 0x2e, 0x49, 0x6d,
-	0x61, 0x67, 0x65, 0x44, 0x61, 0x74, 0x61, 0x1a, 0x17, 0x2e, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74,
-	0x54, 0x6f, 0x54, 0x61, 0x73, 0x6b, 0x2e, 0x49, 0x6d, 0x61, 0x67, 0x65, 0x44, 0x61, 0x74, 0x61,
-	0x22, 0x00, 0x28, 0x01, 0x30, 0x01, 0x12, 0x45, 0x0a, 0x0f, 0x54, 0x65, 0x73, 0x74, 0x50, 0x65,
-	0x72, 0x66, 0x6f, 0x72, 0x6d, 0x61, 0x6e, 0x63, 0x65, 0x12, 0x17, 0x2e, 0x63, 0x6c, 0x69, 0x65,
-	0x6e, 0x74, 0x54, 0x6f, 0x54, 0x61, 0x73, 0x6b, 0x2e, 0x49, 0x6d, 0x61, 0x67, 0x65, 0x44, 0x61,
-	0x74, 0x61, 0x1a, 0x17, 0x2e, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x54, 0x6f, 0x54, 0x61, 0x73,
-	0x6b, 0x2e, 0x49, 0x6d, 0x61, 0x67, 0x65, 0x44, 0x61, 0x74, 0x61, 0x22, 0x00, 0x42, 0x3c, 0x5a,
-	0x3a, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x6e, 0x69, 0x6b, 0x68,
-	0x73, 0x32, 0x34, 0x37, 0x2f, 0x6f, 0x62, 0x6a, 0x65, 0x63, 0x74, 0x44, 0x65, 0x74, 0x65, 0x63,
-	0x74, 0x69, 0x6f, 0x6e, 0x2f, 0x63, 0x6f, 0x6d, 0x6d, 0x73, 0x2f, 0x72, 0x70, 0x63, 0x2f, 0x63,
-	0x6c, 0x69, 0x65, 0x6e, 0x74, 0x54, 0x6f, 0x54, 0x61, 0x73, 0x6b, 0x62, 0x06, 0x70, 0x72, 0x6f,
-	0x74, 0x6f, 0x33,
+	0x07, 0x69, 0x6d, 0x61, 0x67, 0x65, 0x49, 0x44, 0x32, 0xa1, 0x01, 0x0a, 0x0f, 0x72, 0x70, 0x63,
+	0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x54, 0x6f, 0x54, 0x61, 0x73, 0x6b, 0x12, 0x47, 0x0a, 0x0d,
+	0x53, 0x65, 0x6e, 0x64, 0x52, 0x65, 0x63, 0x76, 0x49, 0x6d, 0x61, 0x67, 0x65, 0x12, 0x17, 0x2e,
+	0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x54, 0x6f, 0x54, 0x61, 0x73, 0x6b, 0x2e, 0x49, 0x6d, 0x61,
+	0x67, 0x65, 0x44, 0x61, 0x74, 0x61, 0x1a, 0x17, 0x2e, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x54,
+	0x6f, 0x54, 0x61, 0x73, 0x6b, 0x2e, 0x49, 0x6d, 0x61, 0x67, 0x65, 0x44, 0x61, 0x74, 0x61, 0x22,
+	0x00, 0x28, 0x01, 0x30, 0x01, 0x12, 0x45, 0x0a, 0x0f, 0x54, 0x65, 0x73, 0x74, 0x50, 0x65, 0x72,
+	0x66, 0x6f, 0x72, 0x6d, 0x61, 0x6e, 0x63, 0x65, 0x12, 0x17, 0x2e, 0x63, 0x6c, 0x69, 0x65, 0x6e,
+	0x74, 0x54, 0x6f, 0x54, 0x61, 0x73, 0x6b, 0x2e, 0x49, 0x6d, 0x61, 0x67, 0x65, 0x44, 0x61, 0x74,
+	0x61, 0x1a, 0x17, 0x2e, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x54, 0x6f, 0x54, 0x61, 0x73, 0x6b,
+	0x2e, 0x49, 0x6d, 0x61, 0x67, 0x65, 0x44, 0x61, 0x74, 0x61, 0x22, 0x00, 0x42, 0x3c, 0x5a, 0x3a,
+	0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x6e, 0x69, 0x6b, 0x68, 0x73,
+	0x32, 0x34, 0x37, 0x2f, 0x6f, 0x62, 0x6a, 0x65, 0x63, 0x74, 0x44, 0x65, 0x74, 0x65, 0x63, 0x74,
+	0x69, 0x6f, 0x6e, 0x2f, 0x63, 0x6f, 0x6d, 0x6d, 0x73, 0x2f, 0x72, 0x70, 0x63, 0x2f, 0x63, 0x6c,
+	0x69, 0x65, 0x6e, 0x74, 0x54, 0x6f, 0x54, 0x61, 0x73, 0x6b, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74,
+	0x6f, 0x33,
 }
 
 var (
@@ -156,10 +156,10 @@ var file_clientToTask_proto_goTypes = []interface{}{
 	(*ImageData)(nil), // 0: clientToTask.ImageData
 }
 var file_clientToTask_proto_depIdxs = []int32{
-	0, // 0: clientToTask.rpcClientToCargo.SendRecvImage:input_type -> clientToTask.ImageData
-	0, // 1: clientToTask.rpcClientToCargo.TestPerformance:input_type -> clientToTask.ImageData
-	0, // 2: clientToTask.rpcClientToCargo.SendRecvImage:output_type -> clientToTask.ImageData
-	0, // 3: clientToTask.rpcClientToCargo.TestPerformance:output_type -> clientToTask.ImageData
+	0, // 0: clientToTask.rpcClientToTask.SendRecvImage:input_type -> clientToTask.ImageData
+	0, // 1: clientToTask.rpcClientToTask.TestPerformance:input_type -> clientToTask.ImageData
+	0, // 2: clientToTask.rpcClientToTask.SendRecvImage:output_type -> clientToTask.ImageData
+	0, // 3: clientToTask.rpcClientToTask.TestPerformance:output_type -> clientToTask.ImageData
 	2, // [2:4] is the sub-list for method output_type
 	0, // [0:2] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
@@ -214,46 +214,46 @@ var _ grpc.ClientConnInterface
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion6
 
-// RpcClientToCargoClient is the client API for RpcClientToCargo service.
+// RpcClientToTaskClient is the client API for RpcClientToTask service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
-type RpcClientToCargoClient interface {
-	SendRecvImage(ctx context.Context, opts ...grpc.CallOption) (RpcClientToCargo_SendRecvImageClient, error)
+type RpcClientToTaskClient interface {
+	SendRecvImage(ctx context.Context, opts ...grpc.CallOption) (RpcClientToTask_SendRecvImageClient, error)
 	TestPerformance(ctx context.Context, in *ImageData, opts ...grpc.CallOption) (*ImageData, error)
 }
 
-type rpcClientToCargoClient struct {
+type rpcClientToTaskClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewRpcClientToCargoClient(cc grpc.ClientConnInterface) RpcClientToCargoClient {
-	return &rpcClientToCargoClient{cc}
+func NewRpcClientToTaskClient(cc grpc.ClientConnInterface) RpcClientToTaskClient {
+	return &rpcClientToTaskClient{cc}
 }
 
-func (c *rpcClientToCargoClient) SendRecvImage(ctx context.Context, opts ...grpc.CallOption) (RpcClientToCargo_SendRecvImageClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_RpcClientToCargo_serviceDesc.Streams[0], "/clientToTask.rpcClientToCargo/SendRecvImage", opts...)
+func (c *rpcClientToTaskClient) SendRecvImage(ctx context.Context, opts ...grpc.CallOption) (RpcClientToTask_SendRecvImageClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_RpcClientToTask_serviceDesc.Streams[0], "/clientToTask.rpcClientToTask/SendRecvImage", opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &rpcClientToCargoSendRecvImageClient{stream}
+	x := &rpcClientToTaskSendRecvImageClient{stream}
 	return x, nil
 }
 
-type RpcClientToCargo_SendRecvImageClient interface {
+type RpcClientToTask_SendRecvImageClient interface {
 	Send(*ImageData) error
 	Recv() (*ImageData, error)
 	grpc.ClientStream
 }
 
-type rpcClientToCargoSendRecvImageClient struct {
+type rpcClientToTaskSendRecvImageClient struct {
 	grpc.ClientStream
 }
 
-func (x *rpcClientToCargoSendRecvImageClient) Send(m *ImageData) error {
+func (x *rpcClientToTaskSendRecvImageClient) Send(m *ImageData) error {
 	return x.ClientStream.SendMsg(m)
 }
 
-func (x *rpcClientToCargoSendRecvImageClient) Recv() (*ImageData, error) {
+func (x *rpcClientToTaskSendRecvImageClient) Recv() (*ImageData, error) {
 	m := new(ImageData)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -261,55 +261,55 @@ func (x *rpcClientToCargoSendRecvImageClient) Recv() (*ImageData, error) {
 	return m, nil
 }
 
-func (c *rpcClientToCargoClient) TestPerformance(ctx context.Context, in *ImageData, opts ...grpc.CallOption) (*ImageData, error) {
+func (c *rpcClientToTaskClient) TestPerformance(ctx context.Context, in *ImageData, opts ...grpc.CallOption) (*ImageData, error) {
 	out := new(ImageData)
-	err := c.cc.Invoke(ctx, "/clientToTask.rpcClientToCargo/TestPerformance", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/clientToTask.rpcClientToTask/TestPerformance", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// RpcClientToCargoServer is the server API for RpcClientToCargo service.
-type RpcClientToCargoServer interface {
-	SendRecvImage(RpcClientToCargo_SendRecvImageServer) error
+// RpcClientToTaskServer is the server API for RpcClientToTask service.
+type RpcClientToTaskServer interface {
+	SendRecvImage(RpcClientToTask_SendRecvImageServer) error
 	TestPerformance(context.Context, *ImageData) (*ImageData, error)
 }
 
-// UnimplementedRpcClientToCargoServer can be embedded to have forward compatible implementations.
-type UnimplementedRpcClientToCargoServer struct {
+// UnimplementedRpcClientToTaskServer can be embedded to have forward compatible implementations.
+type UnimplementedRpcClientToTaskServer struct {
 }
 
-func (*UnimplementedRpcClientToCargoServer) SendRecvImage(RpcClientToCargo_SendRecvImageServer) error {
+func (*UnimplementedRpcClientToTaskServer) SendRecvImage(RpcClientToTask_SendRecvImageServer) error {
 	return status.Errorf(codes.Unimplemented, "method SendRecvImage not implemented")
 }
-func (*UnimplementedRpcClientToCargoServer) TestPerformance(context.Context, *ImageData) (*ImageData, error) {
+func (*UnimplementedRpcClientToTaskServer) TestPerformance(context.Context, *ImageData) (*ImageData, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method TestPerformance not implemented")
 }
 
-func RegisterRpcClientToCargoServer(s *grpc.Server, srv RpcClientToCargoServer) {
-	s.RegisterService(&_RpcClientToCargo_serviceDesc, srv)
+func RegisterRpcClientToTaskServer(s *grpc.Server, srv RpcClientToTaskServer) {
+	s.RegisterService(&_RpcClientToTask_serviceDesc, srv)
 }
 
-func _RpcClientToCargo_SendRecvImage_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(RpcClientToCargoServer).SendRecvImage(&rpcClientToCargoSendRecvImageServer{stream})
+func _RpcClientToTask_SendRecvImage_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(RpcClientToTaskServer).SendRecvImage(&rpcClientToTaskSendRecvImageServer{stream})
 }
 
-type RpcClientToCargo_SendRecvImageServer interface {
+type RpcClientToTask_SendRecvImageServer interface {
 	Send(*ImageData) error
 	Recv() (*ImageData, error)
 	grpc.ServerStream
 }
 
-type rpcClientToCargoSendRecvImageServer struct {
+type rpcClientToTaskSendRecvImageServer struct {
 	grpc.ServerStream
 }
 
-func (x *rpcClientToCargoSendRecvImageServer) Send(m *ImageData) error {
+func (x *rpcClientToTaskSendRecvImageServer) Send(m *ImageData) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func (x *rpcClientToCargoSendRecvImageServer) Recv() (*ImageData, error) {
+func (x *rpcClientToTaskSendRecvImageServer) Recv() (*ImageData, error) {
 	m := new(ImageData)
 	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -317,37 +317,37 @@ func (x *rpcClientToCargoSendRecvImageServer) Recv() (*ImageData, error) {
 	return m, nil
 }
 
-func _RpcClientToCargo_TestPerformance_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _RpcClientToTask_TestPerformance_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ImageData)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RpcClientToCargoServer).TestPerformance(ctx, in)
+		return srv.(RpcClientToTaskServer).TestPerformance(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/clientToTask.rpcClientToCargo/TestPerformance",
+		FullMethod: "/clientToTask.rpcClientToTask/TestPerformance",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RpcClientToCargoServer).TestPerformance(ctx, req.(*ImageData))
+		return srv.(RpcClientToTaskServer).TestPerformance(ctx, req.(*ImageData))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-var _RpcClientToCargo_serviceDesc = grpc.ServiceDesc{
-	ServiceName: "clientToTask.rpcClientToCargo",
-	HandlerType: (*RpcClientToCargoServer)(nil),
+var _RpcClientToTask_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "clientToTask.rpcClientToTask",
+	HandlerType: (*RpcClientToTaskServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "TestPerformance",
-			Handler:    _RpcClientToCargo_TestPerformance_Handler,
+			Handler:    _RpcClientToTask_TestPerformance_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "SendRecvImage",
-			Handler:       _RpcClientToCargo_SendRecvImage_Handler,
+			Handler:       _RpcClientToTask_SendRecvImage_Handler,
 			ServerStreams: true,
 			ClientStreams: true,
 		},

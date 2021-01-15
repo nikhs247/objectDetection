@@ -4,7 +4,7 @@ package clientToTask;
 
 option go_package="github.com/nikhs247/objectDetection/comms/rpc/clientToTask";
 
-    service rpcClientToCargo {
+    service rpcClientToTask {
         rpc SendRecvImage(stream ImageData) returns (stream ImageData) {}
         rpc TestPerformance(ImageData) returns (ImageData) {}
     }
