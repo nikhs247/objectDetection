@@ -23,8 +23,8 @@ type ClientInfo struct {
 	appManagerPort    string
 	appManagerConn    *grpc.ClientConn
 	appManagerService clientToAppMgr.RpcClientToAppMgrClient
-	serverIPs         []string
-	serverPorts       []string
+	serverIPs         [nMultiConn]string
+	serverPorts       [nMultiConn]string
 	backupServers     map[string]bool
 	lastFrameLoc      map[string]int
 	conns             map[string]*grpc.ClientConn
@@ -43,8 +43,6 @@ func Init(appMgrIP string, appMgrPort string) *ClientInfo {
 	ci.appManagerPort = appMgrPort
 	// ci.serverIPs = make([]string, nMultiConn)
 	// ci.serverPorts = make([]string, nMultiConn)
-	ci.serverIPs = []string{"localhost", "localhost", "localhost"}
-	ci.serverPorts = []string{"8080", "8090", "8070"}
 	ci.backupServers = make(map[string]bool, nMultiConn)
 	ci.lastFrameLoc = make(map[string]int, nMultiConn)
 	ci.conns = make(map[string]*grpc.ClientConn, nMultiConn)
@@ -82,8 +80,15 @@ func (ci *ClientInfo) QueryListFromAppManager() {
 		return
 	}
 	taskList := list.GetTaskList()
-	ips := []string{taskList[0].GetIp(), taskList[1].GetIp(), taskList[2].GetIp()}
-	ports := []string{taskList[0].GetPort(), taskList[1].GetPort(), taskList[2].GetPort()}
+	ips := [3]string{taskList[0].GetIp(), taskList[1].GetIp(), taskList[2].GetIp()}
+	ports := [3]string{taskList[0].GetPort(), taskList[1].GetPort(), taskList[2].GetPort()}
+	if ci.serverIPs[0] == "" {
+		ci.serverIPs = ips
+		ci.serverPorts = ports
+		ci.taskIP = ips[0]
+		ci.taskPort = ports[0]
+		return
+	}
 	for i := 0; i < nMultiConn; i++ {
 		found := false
 		for j := 0; j < len(ips); j++ {
