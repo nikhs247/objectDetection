@@ -19,7 +19,7 @@ import (
 )
 
 type TaskServer struct {
-	clientToTask.UnimplementedRpcClientToCargoServer
+	clientToTask.UnimplementedRpcClientToTaskServer
 
 	IP         string
 	ListenPort string
@@ -100,7 +100,7 @@ func (ts *TaskServer) TestPerformance(ctx context.Context, imgData *clientToTask
 	return retData, nil
 }
 
-func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToCargo_SendRecvImageServer) error {
+func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecvImageServer) error {
 
 	model := "data/frozen_inference_graph.pb"
 	config := "data/ssd_mobilenet_v1.pbtxt"
@@ -178,7 +178,7 @@ func (ts *TaskServer) ListenRoutine() {
 	}
 
 	grpcServer := grpc.NewServer()
-	clientToTask.RegisterRpcClientToCargoServer(grpcServer, ts)
+	clientToTask.RegisterRpcClientToTaskServer(grpcServer, ts)
 	reflection.Register(grpcServer)
 	grpcServer.Serve(listen)
 }
