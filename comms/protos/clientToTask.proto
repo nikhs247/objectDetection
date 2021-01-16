@@ -14,5 +14,4 @@ option go_package="github.com/nikhs247/objectDetection/comms/rpc/clientToTask";
         int32 height = 2;
         int32 matType = 3;
         bytes image = 4;
-        int32 imageID = 5;
     }
