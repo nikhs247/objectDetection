@@ -90,6 +90,9 @@ func (ts *TaskServer) TestPerformance(ctx context.Context, imgData *clientToTask
 	imgdata := mat.ToBytes()
 	mattype := int32(mat.Type())
 
+	// rand.Seed(time.Now().Unix())
+	// time.Sleep(time.Duration(rand.Intn(10) * int(time.Millisecond)))
+
 	retData := &clientToTask.ImageData{
 		Width:   int32(dims[0]),
 		Height:  int32(dims[1]),
