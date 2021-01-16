@@ -180,6 +180,7 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 	// create connection to all nMultConn servers
 	for i := 0; i < nMultiConn; i++ {
 		key := ci.serverIPs[i] + ":" + ci.serverPorts[i]
+		fmt.Println(key)
 		conn, err := grpc.Dial(key, grpc.WithInsecure())
 		if err != nil {
 			log.Fatalf("Connection to server failed: %v", err)
@@ -191,6 +192,7 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 			log.Fatalf("Client stide creation failed: %v", err)
 		}
 		ci.stream[key] = stream
+		fmt.Printf("%v\n", ci.stream[key])
 	}
 
 	// open video to capture
@@ -216,9 +218,9 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 		defer window.Close()
 
 		for {
-			if _, ok := receiveData[nImagesReceived]; !ok {
-				continue
-			}
+			// if _, ok := receiveData[nImagesReceived]; !ok {
+			// 	continue
+			// }
 
 			stream := ci.stream[receiveData[nImagesReceived]]
 			img, err := stream.Recv()
@@ -306,6 +308,8 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 		// fmt.Printf("Stream Map size %d\n", len(ci.stream))
 		// fmt.Printf("Stream address - %s\n", taskIP+":"+taskPort)
 		stream := ci.stream[taskIP+":"+taskPort]
+		fmt.Printf("%v\n", stream)
+		fmt.Println(taskIP + ":" + taskPort)
 		if nImagesSent == 20 {
 			start = time.Now()
 		}
