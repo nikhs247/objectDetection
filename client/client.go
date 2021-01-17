@@ -312,7 +312,7 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 			ci.mutexServerUpdate.Unlock()
 
 			ci.mutexTimer.Lock()
-			// fmt.Printf("Frame latency: %v\n", time.Since(ci.frameTimer[nImagesReceived]))
+			fmt.Printf("Frame latency: %v\n", time.Since(ci.frameTimer[nImagesReceived]))
 			ci.mutexTimer.Unlock()
 
 			// mat, err := gocv.NewMatFromBytes(int(width), int(height), gocv.MatType(matType), data)
