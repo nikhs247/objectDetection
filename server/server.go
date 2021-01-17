@@ -149,16 +149,18 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecv
 			if err != nil {
 				log.Fatalf("Image receive from app failed: %v", err)
 			}
+			// fmt.Println("Received chunk")
 
-			matType = img.GetMatType()
-			if matType != 123 && matType != -1 {
+			if img.GetMatType() != 123 && img.GetMatType() != -1 {
 				width = img.GetWidth()
 				height = img.GetHeight()
+				matType = img.GetMatType()
 			}
 
 			chunk := img.GetImage()
 			data = append(data, chunk...)
-			if matType == -1 {
+			// fmt.Printf("mattype - %d\n", matType)
+			if img.GetMatType() == -1 {
 				break
 			}
 		}
@@ -214,7 +216,8 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecv
 
 			} else {
 				err = stream.Send(&clientToTask.ImageData{
-					Image: chunks[i],
+					MatType: 123,
+					Image:   chunks[i],
 				})
 
 				if err != nil {

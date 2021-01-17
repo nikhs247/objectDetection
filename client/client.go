@@ -12,6 +12,7 @@ import (
 
 	"github.com/nikhs247/objectDetection/comms/rpc/appcomm"
 	"github.com/nikhs247/objectDetection/comms/rpc/clientToTask"
+	"github.com/paulbellamy/ratecounter"
 	"gocv.io/x/gocv"
 	"google.golang.org/grpc"
 )
@@ -264,13 +265,14 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 	receiveData := make(map[int]string, 0)
 
 	nImagesReceived := 0
-	// var counter *ratecounter.RateCounter
+	var counter *ratecounter.RateCounter
 	// start := time.Time{}
 	go func() {
 
 		// open display window
 		// window := gocv.NewWindow("Object Detect")
 		// defer window.Close()
+		counter = ratecounter.NewRateCounter(1 * time.Second)
 
 		for {
 			ci.mutexServerUpdate.Lock()
@@ -293,15 +295,15 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 					log.Fatalf("Image receive from app failed: %v", err)
 				}
 
-				matType = img.GetMatType()
-				if matType != 123 && matType != -1 {
+				if img.GetMatType() != 123 && img.GetMatType() != -1 {
 					width = img.GetWidth()
 					height = img.GetHeight()
+					matType = img.GetMatType()
 				}
 
 				chunk := img.GetImage()
 				data = append(data, chunk...)
-				if matType == -1 {
+				if img.GetMatType() == -1 {
 					break
 				}
 			}
@@ -310,16 +312,17 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 			ci.mutexServerUpdate.Unlock()
 
 			ci.mutexTimer.Lock()
-			fmt.Printf("Frame latency: %v\n", time.Since(ci.frameTimer[nImagesReceived]))
+			// fmt.Printf("Frame latency: %v\n", time.Since(ci.frameTimer[nImagesReceived]))
 			ci.mutexTimer.Unlock()
 
-			_, err = gocv.NewMatFromBytes(int(width), int(height), gocv.MatType(matType), data)
+			// mat, err := gocv.NewMatFromBytes(int(width), int(height), gocv.MatType(matType), data)
+			_, err := gocv.NewMatFromBytes(int(width), int(height), gocv.MatType(matType), data)
 			if err != nil {
 				log.Fatalf("Error converting bytes to matrix: %v", err)
 			}
 
 			// window.IMShow(mat)
-			// counter.Incr(1)
+			counter.Incr(1)
 			// if window.WaitKey(1) >= 0 {
 			// 	break
 			// }
@@ -338,7 +341,7 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 			}
 			ci.mutexServerUpdate.Unlock()
 			nImagesReceived++
-			// fmt.Printf("%d\n", counter.Rate())
+			fmt.Printf("%d\n", counter.Rate())
 		}
 	}()
 
@@ -357,6 +360,7 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 			continue
 		}
 
+		// fmt.Println("Next frame")
 		dims := img.Size()
 		data := img.ToBytes()
 		mattype := int32(img.Type())
@@ -374,12 +378,14 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 		stream := ci.stream[taskIP+":"+taskPort]
 		ci.mutexServerUpdate.Unlock()
 
+		chunks := split(data, 1024)
+		nChunks := len(chunks)
+
 		ci.mutexTimer.Lock()
 		ci.frameTimer[nImagesSent] = time.Now()
 		ci.mutexTimer.Unlock()
 
-		chunks := split(data, 1024)
-		nChunks := len(chunks)
+		// fmt.Printf("Number of chunks %d\n", nChunks)
 		for i := 0; i < nChunks; i++ {
 			if i == 0 {
 				err = stream.Send(&clientToTask.ImageData{
@@ -392,6 +398,7 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 				if err != nil {
 					log.Fatalf("Error sending image frame: %v", err)
 				}
+				// fmt.Println("Send chunk 0")
 			} else if i == nChunks-1 {
 				err = stream.Send(&clientToTask.ImageData{
 					MatType: -1,
@@ -401,6 +408,8 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 				if err != nil {
 					log.Fatalf("Error sending image frame: %v", err)
 				}
+
+				// fmt.Printf("Send chunk %d\n", nChunks-1)
 
 			} else {
 				err = stream.Send(&clientToTask.ImageData{
