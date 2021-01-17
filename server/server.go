@@ -103,6 +103,19 @@ func (ts *TaskServer) TestPerformance(ctx context.Context, imgData *clientToTask
 	return retData, nil
 }
 
+func split(buf []byte, lim int) [][]byte {
+	var chunk []byte
+	chunks := make([][]byte, 0, len(buf)/lim+1)
+	for len(buf) >= lim {
+		chunk, buf = buf[:lim], buf[lim:]
+		chunks = append(chunks, chunk)
+	}
+	if len(buf) > 0 {
+		chunks = append(chunks, buf[:])
+	}
+	return chunks
+}
+
 func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecvImageServer) error {
 
 	model := "data/frozen_inference_graph.pb"
@@ -124,19 +137,32 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecv
 	swapRGB := true
 
 	for {
-		img, err := stream.Recv()
-		start := time.Now()
-		if err == io.EOF {
-			return nil
-		}
-		if err != nil {
-			log.Fatalf("Image receive from app failed: %v", err)
-		}
+		data := make([]byte, 0)
+		var width int32
+		var height int32
+		var matType int32
+		for {
+			img, err := stream.Recv()
+			if err == io.EOF {
+				return nil
+			}
+			if err != nil {
+				log.Fatalf("Image receive from app failed: %v", err)
+			}
 
-		width := img.GetWidth()
-		height := img.GetHeight()
-		matType := img.GetMatType()
-		data := img.GetImage()
+			matType = img.GetMatType()
+			if matType != 123 && matType != -1 {
+				width = img.GetWidth()
+				height = img.GetHeight()
+			}
+
+			chunk := img.GetImage()
+			data = append(data, chunk...)
+			if matType == -1 {
+				break
+			}
+		}
+		start := time.Now()
 
 		mat, err := gocv.NewMatFromBytes(int(width), int(height), gocv.MatType(matType), data)
 		if err != nil {
@@ -162,14 +188,39 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecv
 		mattype := int32(mat.Type())
 
 		fmt.Printf("Processing time %v\n", time.Since(start))
-		err = stream.Send(&clientToTask.ImageData{
-			Width:   int32(dims[0]),
-			Height:  int32(dims[1]),
-			MatType: mattype,
-			Image:   imgdata,
-		})
-		if err != nil {
-			log.Fatalf("Error sending image frame: %v", err)
+		chunks := split(imgdata, 1024)
+		nChunks := len(chunks)
+		for i := 0; i < nChunks; i++ {
+			if i == 0 {
+				err = stream.Send(&clientToTask.ImageData{
+					Width:   int32(dims[0]),
+					Height:  int32(dims[1]),
+					MatType: mattype,
+					Image:   chunks[i],
+				})
+
+				if err != nil {
+					log.Fatalf("Error sending image frame: %v", err)
+				}
+			} else if i == nChunks-1 {
+				err = stream.Send(&clientToTask.ImageData{
+					MatType: -1,
+					Image:   chunks[i],
+				})
+
+				if err != nil {
+					log.Fatalf("Error sending image frame: %v", err)
+				}
+
+			} else {
+				err = stream.Send(&clientToTask.ImageData{
+					Image: chunks[i],
+				})
+
+				if err != nil {
+					log.Fatalf("Error sending image frame: %v", err)
+				}
+			}
 		}
 	}
 }
