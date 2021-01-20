@@ -137,7 +137,7 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecv
 	swapRGB := true
 
 	for {
-		data := make([]byte, 0)
+		data := make([]byte, 3000000)
 		var width int32
 		var height int32
 		var matType int32
@@ -151,7 +151,7 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecv
 			}
 			// fmt.Println("Received chunk")
 
-			if img.GetMatType() != 123 && img.GetMatType() != -1 {
+			if img.GetStart() == 1 {
 				width = img.GetWidth()
 				height = img.GetHeight()
 				matType = img.GetMatType()
@@ -160,7 +160,7 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecv
 			chunk := img.GetImage()
 			data = append(data, chunk...)
 			// fmt.Printf("mattype - %d\n", matType)
-			if img.GetMatType() == -1 {
+			if img.GetStart() == 0 {
 				break
 			}
 		}
@@ -200,6 +200,7 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecv
 					Height:  int32(dims[1]),
 					MatType: mattype,
 					Image:   chunks[i],
+					Start:   1,
 				})
 
 				if err != nil {
@@ -207,8 +208,8 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecv
 				}
 			} else if i == nChunks-1 {
 				err = stream.Send(&clientToTask.ImageData{
-					MatType: -1,
-					Image:   chunks[i],
+					Start: 0,
+					Image: chunks[i],
 				})
 
 				if err != nil {
@@ -217,8 +218,8 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecv
 
 			} else {
 				err = stream.Send(&clientToTask.ImageData{
-					MatType: 123,
-					Image:   chunks[i],
+					Start: -1,
+					Image: chunks[i],
 				})
 
 				if err != nil {
