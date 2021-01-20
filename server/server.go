@@ -164,9 +164,8 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecv
 				break
 			}
 		}
-		fmt.Printf("Received frame time: %v\n", time.Now().UnixNano()/(int64(time.Millisecond)/int64(time.Nanosecond)))
-		start := time.Now()
 
+		t1 := time.Now()
 		mat, err := gocv.NewMatFromBytes(int(width), int(height), gocv.MatType(matType), data)
 		if err != nil {
 			log.Fatalf("Error converting bytes to matrix: %v", err)
@@ -186,11 +185,11 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecv
 		prob.Close()
 		blob.Close()
 
+		fmt.Printf("Processing time %v\n", time.Since(t1))
 		dims := mat.Size()
 		imgdata := mat.ToBytes()
 		mattype := int32(mat.Type())
 
-		fmt.Printf("Processing time %v\n", time.Since(start))
 		chunks := split(imgdata, 4096)
 		nChunks := len(chunks)
 		for i := 0; i < nChunks; i++ {

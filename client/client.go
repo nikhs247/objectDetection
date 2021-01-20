@@ -273,6 +273,7 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 		chunks := split(dataSend, 4096)
 		nChunks := len(chunks)
 
+		t1 := time.Now()
 		for i := 0; i < nChunks; i++ {
 			if i == 0 {
 				err = stream.Send(&clientToTask.ImageData{
@@ -321,7 +322,7 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 				log.Fatalf("Image receive from app failed: %v", err)
 			}
 
-			if img.GetMatType() != 123 && img.GetMatType() != -1 {
+			if img.GetStart() == 1 {
 				width = img.GetWidth()
 				height = img.GetHeight()
 				matType = img.GetMatType()
@@ -329,11 +330,12 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 
 			chunk := img.GetImage()
 			dataRecv = append(dataRecv, chunk...)
-			if img.GetMatType() == -1 {
+			if img.GetStart() == 0 {
 				break
 			}
 		}
 
+		fmt.Printf("Frame latency - %v \n", time.Since(t1))
 		_, err := gocv.NewMatFromBytes(int(width), int(height), gocv.MatType(matType), dataRecv)
 		if err != nil {
 			log.Fatalf("Error converting bytes to matrix: %v", err)
