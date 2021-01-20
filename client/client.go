@@ -12,7 +12,6 @@ import (
 
 	"github.com/nikhs247/objectDetection/comms/rpc/appcomm"
 	"github.com/nikhs247/objectDetection/comms/rpc/clientToTask"
-	"github.com/paulbellamy/ratecounter"
 	"gocv.io/x/gocv"
 	"google.golang.org/grpc"
 )
@@ -47,25 +46,19 @@ func Init(appMgrIP string, appMgrPort string) *ClientInfo {
 	// ci.serverIPs = make([]string, nMultiConn)
 	// ci.serverPorts = make([]string, nMultiConn)
 	ci.backupServers = make(map[string]bool, nMultiConn)
-	ci.lastFrameLoc = make(map[string]int, nMultiConn)
 	ci.conns = make(map[string]*grpc.ClientConn, nMultiConn)
 	ci.service = make(map[string]clientToTask.RpcClientToTaskClient, nMultiConn)
 	ci.stream = make(map[string]clientToTask.RpcClientToTask_SendRecvImageClient, nMultiConn)
-	ci.frameTimer = make(map[int]time.Time, nMultiConn)
 	ci.mutexBestServer = &sync.Mutex{}
-	ci.mutexTimer = &sync.Mutex{}
 	ci.mutexServerUpdate = &sync.Mutex{}
 	ci.newServer = false
 
 	var opts []grpc.DialOption
 	opts = append(opts, grpc.WithInsecure())
-	// opts = append(opts, grpc.WithBlock())
-	// fmt.Println("Dialing to app mgr " + appMgrIP + ":" + appMgrPort)
 	conn, err := grpc.Dial(appMgrIP+":"+appMgrPort, opts...)
 	if err != nil {
 		log.Fatalf("fail to dial: %v", err)
 	}
-	// fmt.Println("Completed connection to app mgr")
 	ci.appManagerConn = conn
 	ci.appManagerService = appcomm.NewApplicationManagerClient(conn)
 
@@ -89,12 +82,9 @@ func (ci *ClientInfo) QueryListFromAppManager() {
 	taskList := list.GetTaskList()
 	ips := [3]string{taskList[0].GetIp(), taskList[1].GetIp(), taskList[2].GetIp()}
 	ports := [3]string{taskList[0].GetPort(), taskList[1].GetPort(), taskList[2].GetPort()}
-	fmt.Printf("Servers notif ips : %v\n", ips)
-	fmt.Printf("Servers notif ports: %v\n", ports)
 	if ci.serverIPs[0] == "" {
 		ci.serverIPs = ips
 		ci.serverPorts = ports
-		fmt.Printf("Servers if : %v\n", ips)
 		ci.taskIP = ips[0]
 		ci.taskPort = ports[0]
 		return
@@ -115,16 +105,15 @@ func (ci *ClientInfo) QueryListFromAppManager() {
 	}
 
 	ci.mutexServerUpdate.Lock()
-	for i := 0; i < nMultiConn; i++ {
-		ci.serverIPs[i] = ips[i]
-		ci.serverPorts[i] = ports[i]
-	}
+	ci.serverIPs = ips
+	ci.serverPorts = ports
 	ci.mutexServerUpdate.Unlock()
 
 	// setup conn, service and stream for new server if one exists in the query list
 	for i := 0; i < nMultiConn; i++ {
+		ci.mutexServerUpdate.Lock()
 		if _, ok := ci.conns[ips[i]+":"+ports[i]]; !ok {
-			ci.mutexServerUpdate.Lock()
+
 			key := ips[i] + ":" + ports[i]
 			conn, err := grpc.Dial(key, grpc.WithInsecure())
 			if err != nil {
@@ -137,8 +126,8 @@ func (ci *ClientInfo) QueryListFromAppManager() {
 				log.Fatalf("Client stide creation failed: %v", err)
 			}
 			ci.stream[key] = stream
-			ci.mutexServerUpdate.Unlock()
 		}
+		ci.mutexServerUpdate.Unlock()
 	}
 	ci.mutexBestServer.Lock()
 	if ci.taskIP != ips[0] && ci.taskPort != ports[0] {
@@ -176,7 +165,6 @@ func (ci *ClientInfo) IdentifyBestServer() {
 		Height:  int32(dims[1]),
 		MatType: mattype,
 		Image:   data,
-		ImageID: 123,
 	}
 	prevElapsedTime := time.Duration(10 * time.Second)
 	taskIP := ci.taskIP
@@ -193,7 +181,6 @@ func (ci *ClientInfo) IdentifyBestServer() {
 			}
 		}
 		elapsedTime := time.Since(start)
-		// fmt.Printf("P - %v --- E - %v\n", prevElapsedTime, elapsedTime)
 		if prevElapsedTime > elapsedTime {
 			prevElapsedTime = elapsedTime
 			ci.mutexServerUpdate.Lock()
@@ -206,12 +193,7 @@ func (ci *ClientInfo) IdentifyBestServer() {
 	ci.taskIP = taskIP
 	ci.taskPort = taskPort
 	ci.newServer = true
-	// fmt.Printf("servers - %s:%s\n", taskIP, taskPort)
 	ci.mutexBestServer.Unlock()
-
-	// fmt.Printf("time taken %v\n", time.Since(startIBS))
-	// fmt.Println("*****************Identified servers********************")
-
 }
 
 func split(buf []byte, lim int) [][]byte {
@@ -346,101 +328,29 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 			}
 
 			chunk := img.GetImage()
-			data = append(data, chunk...)
+			dataRecv = append(dataRecv, chunk...)
 			if img.GetMatType() == -1 {
 				break
 			}
 		}
 
+		_, err := gocv.NewMatFromBytes(int(width), int(height), gocv.MatType(matType), dataRecv)
+		if err != nil {
+			log.Fatalf("Error converting bytes to matrix: %v", err)
+		}
+
+		ci.mutexServerUpdate.Lock()
+		key := taskIP + ":" + taskPort
+		if _, ok := ci.backupServers[taskIP+":"+taskPort]; ok {
+			ci.conns[key].Close()
+			delete(ci.service, key)
+			delete(ci.stream, key)
+			delete(ci.conns, key)
+		}
+		ci.mutexServerUpdate.Unlock()
+
 		nImagesSent++
 	}
-
-	waitc := make(chan struct{})
-
-	receiveData := make(map[int]string, 0)
-
-	nImagesReceived := 0
-	var counter *ratecounter.RateCounter
-	// start := time.Time{}
-	go func() {
-
-		// open display window
-		// window := gocv.NewWindow("Object Detect")
-		// defer window.Close()
-		counter = ratecounter.NewRateCounter(1 * time.Second)
-
-		for {
-			ci.mutexServerUpdate.Lock()
-			if _, ok := receiveData[nImagesReceived]; !ok {
-				ci.mutexServerUpdate.Unlock()
-				continue
-			}
-			stream := ci.stream[receiveData[nImagesReceived]]
-			ci.mutexServerUpdate.Unlock()
-			data := make([]byte, 0)
-			var width int32
-			var height int32
-			var matType int32
-			for {
-				img, err := stream.Recv()
-				if err == io.EOF {
-					break
-				}
-				if err != nil {
-					log.Fatalf("Image receive from app failed: %v", err)
-				}
-
-				if img.GetMatType() != 123 && img.GetMatType() != -1 {
-					width = img.GetWidth()
-					height = img.GetHeight()
-					matType = img.GetMatType()
-				}
-
-				chunk := img.GetImage()
-				data = append(data, chunk...)
-				if img.GetMatType() == -1 {
-					break
-				}
-			}
-			ci.mutexServerUpdate.Lock()
-			delete(receiveData, nImagesReceived)
-			ci.mutexServerUpdate.Unlock()
-
-			ci.mutexTimer.Lock()
-			fmt.Printf("Frame latency: %v\n", time.Since(ci.frameTimer[nImagesReceived]))
-			ci.mutexTimer.Unlock()
-
-			// mat, err := gocv.NewMatFromBytes(int(width), int(height), gocv.MatType(matType), data)
-			_, err := gocv.NewMatFromBytes(int(width), int(height), gocv.MatType(matType), data)
-			if err != nil {
-				log.Fatalf("Error converting bytes to matrix: %v", err)
-			}
-
-			// window.IMShow(mat)
-			counter.Incr(1)
-			// if window.WaitKey(1) >= 0 {
-			// 	break
-			// }
-
-			ci.mutexServerUpdate.Lock()
-			if _, ok := ci.backupServers[receiveData[nImagesReceived]]; ok {
-				if ci.lastFrameLoc[receiveData[nImagesReceived]] == nImagesReceived {
-					// fmt.Printf("Deleted  %s entry\n", receiveData[nImagesReceived])
-					ci.conns[receiveData[nImagesReceived]].Close()
-					delete(ci.service, receiveData[nImagesReceived])
-					delete(ci.stream, receiveData[nImagesReceived])
-					delete(ci.conns, receiveData[nImagesReceived])
-					delete(ci.lastFrameLoc, receiveData[nImagesReceived])
-
-				}
-			}
-			ci.mutexServerUpdate.Unlock()
-			nImagesReceived++
-			fmt.Printf("%d\n", counter.Rate())
-		}
-	}()
-
-	<-waitc
 }
 
 func main() {
