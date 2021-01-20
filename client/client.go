@@ -236,19 +236,19 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 	// create connection to all nMultConn servers
 	for i := 0; i < nMultiConn; i++ {
 		key := ci.serverIPs[i] + ":" + ci.serverPorts[i]
-		// fmt.Println(key)
 		conn, err := grpc.Dial(key, grpc.WithInsecure())
 		if err != nil {
 			log.Fatalf("Connection to server failed: %v", err)
 		}
 		ci.conns[key] = conn
+
 		ci.service[key] = clientToTask.NewRpcClientToTaskClient(conn)
+
 		stream, err := ci.service[key].SendRecvImage(context.Background())
 		if err != nil {
-			log.Fatalf("Client stide creation failed: %v", err)
+			log.Fatalf("Client stub creation failed: %v", err)
 		}
 		ci.stream[key] = stream
-		// fmt.Printf("%v\n", ci.stream[key])
 	}
 
 	// open video to capture
@@ -259,6 +259,101 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 		return
 	}
 	defer video.Close()
+
+	img := gocv.NewMat()
+	defer img.Close()
+
+	nImagesSent := 0
+	for {
+		if ok := video.Read(&img); !ok {
+			fmt.Printf("Video closed: %v\n", videoPath)
+			break
+		}
+		if img.Empty() {
+			continue
+		}
+
+		dims := img.Size()
+		dataSend := img.ToBytes()
+		mattype := int32(img.Type())
+
+		ci.mutexBestServer.Lock()
+		if ci.newServer {
+			taskIP = ci.taskIP
+			taskPort = ci.taskPort
+			ci.newServer = false
+		}
+		ci.mutexBestServer.Unlock()
+		ci.mutexServerUpdate.Lock()
+		stream := ci.stream[taskIP+":"+taskPort]
+		ci.mutexServerUpdate.Unlock()
+
+		chunks := split(dataSend, 4096)
+		nChunks := len(chunks)
+
+		for i := 0; i < nChunks; i++ {
+			if i == 0 {
+				err = stream.Send(&clientToTask.ImageData{
+					Width:   int32(dims[0]),
+					Height:  int32(dims[1]),
+					MatType: mattype,
+					Image:   chunks[i],
+					Start:   1,
+				})
+
+				if err != nil {
+					log.Fatalf("Error sending image frame: %v", err)
+				}
+			} else if i == nChunks-1 {
+				err = stream.Send(&clientToTask.ImageData{
+					Start: 0,
+					Image: chunks[i],
+				})
+
+				if err != nil {
+					log.Fatalf("Error sending image frame: %v", err)
+				}
+
+			} else {
+				err = stream.Send(&clientToTask.ImageData{
+					Start: -1,
+					Image: chunks[i],
+				})
+
+				if err != nil {
+					log.Fatalf("Error sending image frame: %v", err)
+				}
+			}
+		}
+
+		dataRecv := make([]byte, 3000000)
+		var width int32
+		var height int32
+		var matType int32
+		for {
+			img, err := stream.Recv()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				log.Fatalf("Image receive from app failed: %v", err)
+			}
+
+			if img.GetMatType() != 123 && img.GetMatType() != -1 {
+				width = img.GetWidth()
+				height = img.GetHeight()
+				matType = img.GetMatType()
+			}
+
+			chunk := img.GetImage()
+			data = append(data, chunk...)
+			if img.GetMatType() == -1 {
+				break
+			}
+		}
+
+		nImagesSent++
+	}
 
 	waitc := make(chan struct{})
 
@@ -345,86 +440,6 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 		}
 	}()
 
-	img := gocv.NewMat()
-	defer img.Close()
-
-	nImagesSent := 0
-	for {
-		// if ok := webcam.Read(&img); !ok {
-		if ok := video.Read(&img); !ok {
-			// fmt.Printf("Device closed: %v\n", deviceID)
-			fmt.Printf("Video closed: %v\n", videoPath)
-			break
-		}
-		if img.Empty() {
-			continue
-		}
-
-		// fmt.Println("Next frame")
-		dims := img.Size()
-		data := img.ToBytes()
-		mattype := int32(img.Type())
-
-		ci.mutexBestServer.Lock()
-		if ci.newServer {
-			taskIP = ci.taskIP
-			taskPort = ci.taskPort
-			ci.newServer = false
-		}
-		ci.mutexBestServer.Unlock()
-		ci.mutexServerUpdate.Lock()
-		receiveData[nImagesSent] = taskIP + ":" + taskPort
-		ci.lastFrameLoc[taskIP+":"+taskPort] = nImagesSent
-		stream := ci.stream[taskIP+":"+taskPort]
-		ci.mutexServerUpdate.Unlock()
-
-		chunks := split(data, 1024)
-		nChunks := len(chunks)
-
-		ci.mutexTimer.Lock()
-		ci.frameTimer[nImagesSent] = time.Now()
-		ci.mutexTimer.Unlock()
-
-		// fmt.Printf("Number of chunks %d\n", nChunks)
-		for i := 0; i < nChunks; i++ {
-			if i == 0 {
-				err = stream.Send(&clientToTask.ImageData{
-					Width:   int32(dims[0]),
-					Height:  int32(dims[1]),
-					MatType: mattype,
-					Image:   chunks[i],
-				})
-
-				if err != nil {
-					log.Fatalf("Error sending image frame: %v", err)
-				}
-				// fmt.Println("Send chunk 0")
-			} else if i == nChunks-1 {
-				err = stream.Send(&clientToTask.ImageData{
-					MatType: -1,
-					Image:   chunks[i],
-				})
-
-				if err != nil {
-					log.Fatalf("Error sending image frame: %v", err)
-				}
-
-				// fmt.Printf("Send chunk %d\n", nChunks-1)
-
-			} else {
-				err = stream.Send(&clientToTask.ImageData{
-					MatType: 123,
-					Image:   chunks[i],
-				})
-
-				if err != nil {
-					log.Fatalf("Error sending image frame: %v", err)
-				}
-			}
-		}
-
-		nImagesSent++
-	}
 	<-waitc
 }
 
