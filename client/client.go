@@ -164,7 +164,7 @@ func (ci *ClientInfo) IdentifyBestServer() {
 		ci.mutexServerUpdate.Lock()
 		key := ci.serverIPs[i] + ":" + ci.serverPorts[i]
 		ci.mutexServerUpdate.Unlock()
-		perfData, err := ci.service[key].TestPerformance(context.Background(), &clientToTask.TestPerf{check: true})
+		perfData, err := ci.service[key].TestPerformance(context.Background(), &clientToTask.TestPerf{Check: true})
 		if err != nil {
 			log.Fatalf("Error sending test image to %s:%v", key, err)
 		}
