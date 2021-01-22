@@ -156,31 +156,19 @@ func (ci *ClientInfo) PeriodicFuncCalls(wg *sync.WaitGroup) {
 
 func (ci *ClientInfo) IdentifyBestServer() {
 	// startIBS := time.Now()
-	img := gocv.IMRead("data/test/Anthony_Fauci.jpg", gocv.IMReadColor)
-	dims := img.Size()
-	data := img.ToBytes()
-	mattype := int32(img.Type())
-	imgData := clientToTask.ImageData{
-		Width:   int32(dims[0]),
-		Height:  int32(dims[1]),
-		MatType: mattype,
-		Image:   data,
-	}
 	prevElapsedTime := time.Duration(10 * time.Second)
 	taskIP := ci.taskIP
 	taskPort := ci.taskPort
 	for i := 0; i < nMultiConn; i++ {
 		start := time.Now()
-		for j := 0; j < 3; j++ {
-			ci.mutexServerUpdate.Lock()
-			key := ci.serverIPs[i] + ":" + ci.serverPorts[i]
-			ci.mutexServerUpdate.Unlock()
-			_, err := ci.service[key].TestPerformance(context.Background(), &imgData)
-			if err != nil {
-				log.Fatalf("Error sending test image to %s:%v", key, err)
-			}
+		ci.mutexServerUpdate.Lock()
+		key := ci.serverIPs[i] + ":" + ci.serverPorts[i]
+		ci.mutexServerUpdate.Unlock()
+		perfData, err := ci.service[key].TestPerformance(context.Background(), &clientToTask.TestPerf{check: true})
+		if err != nil {
+			log.Fatalf("Error sending test image to %s:%v", key, err)
 		}
-		elapsedTime := time.Since(start)
+		elapsedTime := time.Since(start) + perfData.GetProcTime().AsDuration()
 		if prevElapsedTime > elapsedTime {
 			prevElapsedTime = elapsedTime
 			ci.mutexServerUpdate.Lock()
