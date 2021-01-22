@@ -2,11 +2,13 @@ syntax = "proto3";
 
 package clientToTask;
 
+import "google/protobuf/duration.proto";
+
 option go_package="github.com/nikhs247/objectDetection/comms/rpc/clientToTask";
 
     service rpcClientToTask {
         rpc SendRecvImage(stream ImageData) returns (stream ImageData) {}
-        rpc TestPerformance(ImageData) returns (ImageData) {}
+        rpc TestPerformance(TestPerf) returns (PerfData) {}
     }
 
     message ImageData {   
@@ -15,4 +17,12 @@ option go_package="github.com/nikhs247/objectDetection/comms/rpc/clientToTask";
         int32 matType = 3;
         bytes image = 4;
         int32 start = 5;
+    }
+
+    message TestPerf {
+        bool check = 1;
+    }
+
+    message PerfData {
+        google.protobuf.Duration procTime  = 1;
     }
