@@ -10,19 +10,23 @@ import (
 	"log"
 	"net"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/nikhs247/objectDetection/comms/rpc/clientToTask"
 	"gocv.io/x/gocv"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 type TaskServer struct {
 	clientToTask.UnimplementedRpcClientToTaskServer
 
-	IP         string
-	ListenPort string
+	IP             string
+	ListenPort     string
+	processingTime time.Duration
+	mutexTime      *sync.Mutex
 }
 
 // performDetection analyzes the results from the detector network,
@@ -43,8 +47,10 @@ func performDetection(frame *gocv.Mat, results gocv.Mat) {
 	}
 }
 
-func (ts *TaskServer) TestPerformance(ctx context.Context, imgData *clientToTask.ImageData) (*clientToTask.ImageData, error) {
-
+func (ts *TaskServer) TestPerformance(ctx context.Context, testPerf *clientToTask.TestPerf) (*clientToTask.PerfData, error) {
+	return &clientToTask.PerfData{
+		ProcTime: durationpb.New(ts.processingTime),
+	}, nil
 }
 
 func split(buf []byte, lim int) [][]byte {
@@ -129,7 +135,9 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecv
 		prob.Close()
 		blob.Close()
 
-		fmt.Printf("Processing time %v\n", time.Since(t1))
+		ts.mutexTime.Lock()
+		ts.processingTime = time.Since(t1)
+		ts.mutexTime.Unlock()
 		dims := mat.Size()
 		imgdata := mat.ToBytes()
 		mattype := int32(mat.Type())
