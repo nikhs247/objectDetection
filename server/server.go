@@ -32,8 +32,10 @@ type TaskServer struct {
 	IP             string
 	ListenPort     string
 	processingTime time.Duration
-	mutexTime      *sync.Mutex
+	mutexProcTime  *sync.Mutex
 	appInfo        ApplicationInfo
+	updateTime     time.Time
+	mutexUpTime    *sync.Mutex
 }
 
 // performDetection analyzes the results from the detector network,
@@ -55,21 +57,32 @@ func performDetection(frame *gocv.Mat, results gocv.Mat) {
 }
 
 func (ts *TaskServer) TestPerformance(ctx context.Context, testPerf *clientToTask.TestPerf) (*clientToTask.PerfData, error) {
-	dur, err := time.ParseDuration("0h")
+	ts.mutexUpTime.Lock()
+	diff := time.Since(ts.updateTime)
+	ts.mutexUpTime.Unlock()
+
+	thresholdDuration, err := time.ParseDuration("1s")
 	if err != nil {
 		panic(err)
 	}
-	var procTime time.Duration
-	idle := true
-	ts.mutexTime.Lock()
-	if ts.processingTime != dur {
-		procTime = ts.processingTime
-		time.Sleep(procTime)
-		idle = false
+	idle := false
+	if diff > thresholdDuration {
+		idle = true
 	}
-	ts.mutexTime.Unlock()
+	// dur, err := time.ParseDuration("0h")
+	// if err != nil {
+	// 	panic(err)
+	// }
+	var procTime time.Duration
+	ts.mutexProcTime.Lock()
+	procTime = ts.processingTime
+	ts.mutexProcTime.Unlock()
+	if !idle {
+		time.Sleep(procTime)
+	}
 
 	if idle {
+		// fmt.Println("I am idle")
 		t1 := time.Now()
 
 		img := gocv.IMRead("data/dummyFrame.jpg", gocv.IMReadColor)
@@ -125,6 +138,9 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecv
 		var width int32
 		var height int32
 		var matType int32
+		ts.mutexUpTime.Lock()
+		ts.updateTime = time.Now()
+		ts.mutexUpTime.Unlock()
 		for {
 			img, err := stream.Recv()
 			if err == io.EOF {
@@ -169,9 +185,11 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecv
 		prob.Close()
 		blob.Close()
 
-		ts.mutexTime.Lock()
+		ts.mutexProcTime.Lock()
 		ts.processingTime = time.Since(t1)
-		ts.mutexTime.Unlock()
+		// pTime := ts.processingTime
+		ts.mutexProcTime.Unlock()
+		// fmt.Printf("processing time - %v\n", pTime)
 		dims := mat.Size()
 		imgdata := mat.ToBytes()
 		mattype := int32(mat.Type())
@@ -258,7 +276,8 @@ func main() {
 	ts := &TaskServer{
 		IP:             ip,
 		ListenPort:     listenPort,
-		mutexTime:      &sync.Mutex{},
+		mutexProcTime:  &sync.Mutex{},
+		mutexUpTime:    &sync.Mutex{},
 		processingTime: dur,
 		appInfo:        ai,
 	}

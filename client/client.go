@@ -155,15 +155,17 @@ func (ci *ClientInfo) PeriodicFuncCalls(wg *sync.WaitGroup) {
 }
 
 func (ci *ClientInfo) IdentifyBestServer() {
+	fmt.Println("Performance aware call...")
 	// startIBS := time.Now()
 	prevElapsedTime := time.Duration(10 * time.Second)
 	taskIP := ci.taskIP
 	taskPort := ci.taskPort
 	for i := 0; i < nMultiConn; i++ {
 		start := time.Now()
+		var key string
 		for j := 0; j < 3; j++ {
 			ci.mutexServerUpdate.Lock()
-			key := ci.serverIPs[i] + ":" + ci.serverPorts[i]
+			key = ci.serverIPs[i] + ":" + ci.serverPorts[i]
 			ci.mutexServerUpdate.Unlock()
 			_, err := ci.service[key].TestPerformance(context.Background(), &clientToTask.TestPerf{Check: true})
 			if err != nil {
@@ -171,6 +173,7 @@ func (ci *ClientInfo) IdentifyBestServer() {
 			}
 		}
 		elapsedTime := time.Since(start)
+		fmt.Printf("PerfAware Elapsed time for %v = %v\n", key, elapsedTime)
 		if prevElapsedTime > elapsedTime {
 			prevElapsedTime = elapsedTime
 			ci.mutexServerUpdate.Lock()
@@ -184,6 +187,8 @@ func (ci *ClientInfo) IdentifyBestServer() {
 	ci.taskPort = taskPort
 	ci.newServer = true
 	ci.mutexBestServer.Unlock()
+
+	fmt.Printf("taskIP: %v - taskPort: %v\n", taskIP, taskPort)
 }
 
 func split(buf []byte, lim int) [][]byte {
