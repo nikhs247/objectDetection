@@ -161,14 +161,16 @@ func (ci *ClientInfo) IdentifyBestServer() {
 	taskPort := ci.taskPort
 	for i := 0; i < nMultiConn; i++ {
 		start := time.Now()
-		ci.mutexServerUpdate.Lock()
-		key := ci.serverIPs[i] + ":" + ci.serverPorts[i]
-		ci.mutexServerUpdate.Unlock()
-		perfData, err := ci.service[key].TestPerformance(context.Background(), &clientToTask.TestPerf{Check: true})
-		if err != nil {
-			log.Fatalf("Error sending test image to %s:%v", key, err)
+		for j := 0; j < 3; j++ {
+			ci.mutexServerUpdate.Lock()
+			key := ci.serverIPs[i] + ":" + ci.serverPorts[i]
+			ci.mutexServerUpdate.Unlock()
+			_, err := ci.service[key].TestPerformance(context.Background(), &clientToTask.TestPerf{Check: true})
+			if err != nil {
+				log.Fatalf("Error sending test image to %s:%v", key, err)
+			}
 		}
-		elapsedTime := time.Since(start) + perfData.GetProcTime().AsDuration()
+		elapsedTime := time.Since(start)
 		if prevElapsedTime > elapsedTime {
 			prevElapsedTime = elapsedTime
 			ci.mutexServerUpdate.Lock()
@@ -235,6 +237,7 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 
 	nImagesSent := 0
 	for {
+
 		if ok := video.Read(&img); !ok {
 			fmt.Printf("Video closed: %v\n", videoPath)
 			break
