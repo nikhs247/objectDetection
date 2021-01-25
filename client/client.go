@@ -116,7 +116,7 @@ func (ci *ClientInfo) QueryListFromAppManager() {
 	ci.mutexServerUpdate.Lock()
 	existingIPs := ci.serverIPs
 	existingPorts := ci.serverPorts
-	ci.mutexBestServer.Unlock()
+	ci.mutexServerUpdate.Unlock()
 
 	combinedIPs := make([]string, 0)
 	combinedPorts := make([]string, 0)
@@ -158,10 +158,11 @@ func (ci *ClientInfo) QueryListFromAppManager() {
 				if err != nil {
 					log.Fatalf("Error sending test image to %s:%v", key, err)
 				}
-				ci.mutexBestServer.Unlock()
+				ci.mutexServerUpdate.Unlock()
 
 			}
 			perfTime[key] = time.Since(start)
+			fmt.Printf(" Time taken - %v = %v\n", key, perfTime[key])
 		} else {
 			conn, err := grpc.Dial(key, grpc.WithInsecure())
 			if err != nil {
@@ -181,6 +182,7 @@ func (ci *ClientInfo) QueryListFromAppManager() {
 	}
 
 	sortedTaskTimeList := sortTaskInstances(perfTime)
+	fmt.Printf("Ordered tasks: %v\n", sortedTaskTimeList)
 	selectedTaskIter := 0
 	for i := 0; i < len(sortedTaskTimeList); i++ {
 		available := false
@@ -206,19 +208,36 @@ func (ci *ClientInfo) QueryListFromAppManager() {
 			splitIpPort := strings.Split(key, ":")
 			ci.serverIPs[selectedTaskIter] = splitIpPort[0]
 			ci.serverPorts[selectedTaskIter] = splitIpPort[1]
+			ci.mutexServerUpdate.Unlock()
+
 			if selectedTaskIter == 0 {
-				if ci.taskIP != splitIpPort[0] && ci.taskPort != splitIpPort[1] {
+				ci.mutexBestServer.Lock()
+				if ci.taskIP != splitIpPort[0] || ci.taskPort != splitIpPort[1] {
+					fmt.Printf("New server - %v : %v\n", splitIpPort[0], splitIpPort[0])
 					ci.taskIP = splitIpPort[0]
 					ci.taskPort = splitIpPort[1]
 					ci.newServer = true
 				}
+				ci.mutexBestServer.Unlock()
 			}
-			ci.mutexServerUpdate.Unlock()
+
 		}
 		if available && selectedTaskIter < nMultiConn {
 			splitIpPort := strings.Split(key, ":")
 			ci.serverIPs[selectedTaskIter] = splitIpPort[0]
 			ci.serverPorts[selectedTaskIter] = splitIpPort[1]
+			fmt.Printf("selectedTaskIter - %v\n", selectedTaskIter)
+			if selectedTaskIter == 0 {
+				ci.mutexBestServer.Lock()
+				fmt.Printf("%v != %v && %v != %v\n", ci.taskIP, splitIpPort[0], ci.taskPort, splitIpPort[1])
+				if ci.taskIP != splitIpPort[0] || ci.taskPort != splitIpPort[1] {
+					fmt.Printf("New server - %v : %v\n", splitIpPort[0], splitIpPort[0])
+					ci.taskIP = splitIpPort[0]
+					ci.taskPort = splitIpPort[1]
+					ci.newServer = true
+				}
+				ci.mutexBestServer.Unlock()
+			}
 		}
 		if available && selectedTaskIter >= nMultiConn {
 			ci.mutexServerUpdate.Lock()
@@ -227,6 +246,8 @@ func (ci *ClientInfo) QueryListFromAppManager() {
 		}
 		selectedTaskIter++
 	}
+	fmt.Printf("Current top task intance %v:%v\n", ci.taskIP, ci.taskPort)
+
 }
 
 func (ci *ClientInfo) PeriodicFuncCalls(wg *sync.WaitGroup) {

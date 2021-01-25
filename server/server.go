@@ -187,9 +187,9 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecv
 
 		ts.mutexProcTime.Lock()
 		ts.processingTime = time.Since(t1)
-		// pTime := ts.processingTime
+		pTime := ts.processingTime
 		ts.mutexProcTime.Unlock()
-		// fmt.Printf("processing time - %v\n", pTime)
+		fmt.Printf("processing time - %v\n", pTime)
 		dims := mat.Size()
 		imgdata := mat.ToBytes()
 		mattype := int32(mat.Type())
