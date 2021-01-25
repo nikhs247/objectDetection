@@ -6,7 +6,9 @@ import (
 	"io"
 	"log"
 	"os"
+	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -65,6 +67,28 @@ func Init(appMgrIP string, appMgrPort string) *ClientInfo {
 	return &ci
 }
 
+type Pair struct {
+	Key   string
+	Value time.Duration
+}
+
+type PairList []Pair
+
+func (p PairList) Len() int           { return len(p) }
+func (p PairList) Less(i, j int) bool { return p[i].Value < p[j].Value }
+func (p PairList) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
+
+func sortTaskInstances(perfTime map[string]time.Duration) PairList {
+	pl := make(PairList, len(perfTime))
+	i := 0
+	for k, v := range perfTime {
+		pl[i] = Pair{k, v}
+		i++
+	}
+	sort.Sort(pl)
+	return pl
+}
+
 func (ci *ClientInfo) QueryListFromAppManager() {
 
 	list, err := ci.appManagerService.QueryTaskList(context.Background(), &appcomm.Query{
@@ -89,32 +113,85 @@ func (ci *ClientInfo) QueryListFromAppManager() {
 		ci.taskPort = ports[0]
 		return
 	}
-	for i := 0; i < nMultiConn; i++ {
+	ci.mutexServerUpdate.Lock()
+	existingIPs := ci.serverIPs
+	existingPorts := ci.serverPorts
+	ci.mutexBestServer.Unlock()
+
+	combinedIPs := make([]string, 0)
+	combinedPorts := make([]string, 0)
+	for i := 0; i < len(ips); i++ {
 		found := false
-		for j := 0; j < len(ips); j++ {
-			if ips[j] == ci.serverIPs[i] && ports[j] == ci.serverPorts[i] {
+		for j := 0; j < nMultiConn; j++ {
+			if ips[i] == existingIPs[j] && ports[i] == existingPorts[j] {
 				found = true
 				break
 			}
 		}
 		if !found {
-			ci.mutexServerUpdate.Lock()
-			ci.backupServers[ci.serverIPs[i]+":"+ci.serverPorts[i]] = true
-			ci.mutexServerUpdate.Unlock()
+			combinedIPs = append(combinedIPs, ips[i])
+			combinedPorts = append(combinedPorts, ports[i])
+		}
+		// if !found {
+		// 	ci.mutexServerUpdate.Lock()
+		// 	ci.backupServers[ci.serverIPs[i]+":"+ci.serverPorts[i]] = true
+		// 	ci.mutexServerUpdate.Unlock()
+		// }
+	}
+	combinedIPs = append(combinedIPs, existingIPs[:]...)
+	combinedPorts = append(combinedPorts, existingPorts[:]...)
+	perfTime := make(map[string]time.Duration, nMultiConn)
+
+	for i := 0; i < len(combinedIPs); i++ {
+		key := combinedIPs[i] + ":" + combinedPorts[i]
+		available := false
+		ci.mutexServerUpdate.Lock()
+		if _, ok := ci.service[key]; ok {
+			available = true
+		}
+		ci.mutexServerUpdate.Unlock()
+		if available {
+			start := time.Now()
+			for j := 0; j < 3; j++ {
+				ci.mutexServerUpdate.Lock()
+				_, err := ci.service[key].TestPerformance(context.Background(), &clientToTask.TestPerf{Check: true})
+				if err != nil {
+					log.Fatalf("Error sending test image to %s:%v", key, err)
+				}
+				ci.mutexBestServer.Unlock()
+
+			}
+			perfTime[key] = time.Since(start)
+		} else {
+			conn, err := grpc.Dial(key, grpc.WithInsecure())
+			if err != nil {
+				log.Fatalf("Connection to server failed: %v", err)
+			}
+			service := clientToTask.NewRpcClientToTaskClient(conn)
+			start := time.Now()
+			for j := 0; j < 3; j++ {
+				_, err := service.TestPerformance(context.Background(), &clientToTask.TestPerf{Check: true})
+				if err != nil {
+					log.Fatalf("Error sending test image to %s:%v", key, err)
+				}
+			}
+			conn.Close()
+			perfTime[key] = time.Since(start)
 		}
 	}
 
-	ci.mutexServerUpdate.Lock()
-	ci.serverIPs = ips
-	ci.serverPorts = ports
-	ci.mutexServerUpdate.Unlock()
-
-	// setup conn, service and stream for new server if one exists in the query list
-	for i := 0; i < nMultiConn; i++ {
+	sortedTaskTimeList := sortTaskInstances(perfTime)
+	selectedTaskIter := 0
+	for i := 0; i < len(sortedTaskTimeList); i++ {
+		available := false
+		key := sortedTaskTimeList[i].Key
 		ci.mutexServerUpdate.Lock()
-		if _, ok := ci.conns[ips[i]+":"+ports[i]]; !ok {
-
-			key := ips[i] + ":" + ports[i]
+		if _, ok := ci.service[key]; ok {
+			available = true
+		}
+		ci.mutexServerUpdate.Unlock()
+		if !available && selectedTaskIter < nMultiConn {
+			ci.mutexServerUpdate.Lock()
 			conn, err := grpc.Dial(key, grpc.WithInsecure())
 			if err != nil {
 				log.Fatalf("Connection to server failed: %v", err)
@@ -126,69 +203,42 @@ func (ci *ClientInfo) QueryListFromAppManager() {
 				log.Fatalf("Client stide creation failed: %v", err)
 			}
 			ci.stream[key] = stream
+			splitIpPort := strings.Split(key, ":")
+			ci.serverIPs[selectedTaskIter] = splitIpPort[0]
+			ci.serverPorts[selectedTaskIter] = splitIpPort[1]
+			if selectedTaskIter == 0 {
+				if ci.taskIP != splitIpPort[0] && ci.taskPort != splitIpPort[1] {
+					ci.taskIP = splitIpPort[0]
+					ci.taskPort = splitIpPort[1]
+					ci.newServer = true
+				}
+			}
+			ci.mutexServerUpdate.Unlock()
 		}
-		ci.mutexServerUpdate.Unlock()
+		if available && selectedTaskIter < nMultiConn {
+			splitIpPort := strings.Split(key, ":")
+			ci.serverIPs[selectedTaskIter] = splitIpPort[0]
+			ci.serverPorts[selectedTaskIter] = splitIpPort[1]
+		}
+		if available && selectedTaskIter >= nMultiConn {
+			ci.mutexServerUpdate.Lock()
+			ci.backupServers[key] = true
+			ci.mutexServerUpdate.Unlock()
+		}
+		selectedTaskIter++
 	}
-	ci.mutexBestServer.Lock()
-	if ci.taskIP != ips[0] && ci.taskPort != ports[0] {
-		fmt.Printf("Changing IP:Port to %s:%s\n", ips[0], ports[0])
-		ci.taskIP = ips[0]
-		ci.taskPort = ports[0]
-		ci.newServer = true
-	}
-	ci.mutexBestServer.Unlock()
 }
 
 func (ci *ClientInfo) PeriodicFuncCalls(wg *sync.WaitGroup) {
 	defer wg.Done()
-	identifyBestServerTicker := time.NewTicker(5 * time.Second)
-	queryListTicker := time.NewTicker(8 * time.Second)
+	queryListTicker := time.NewTicker(5 * time.Second)
 
 	for {
 		select {
-		case <-identifyBestServerTicker.C:
-			ci.IdentifyBestServer()
 		case <-queryListTicker.C:
 			ci.QueryListFromAppManager()
 		}
 	}
-}
-
-func (ci *ClientInfo) IdentifyBestServer() {
-	fmt.Println("Performance aware call...")
-	// startIBS := time.Now()
-	prevElapsedTime := time.Duration(10 * time.Second)
-	taskIP := ci.taskIP
-	taskPort := ci.taskPort
-	for i := 0; i < nMultiConn; i++ {
-		start := time.Now()
-		var key string
-		for j := 0; j < 3; j++ {
-			ci.mutexServerUpdate.Lock()
-			key = ci.serverIPs[i] + ":" + ci.serverPorts[i]
-			ci.mutexServerUpdate.Unlock()
-			_, err := ci.service[key].TestPerformance(context.Background(), &clientToTask.TestPerf{Check: true})
-			if err != nil {
-				log.Fatalf("Error sending test image to %s:%v", key, err)
-			}
-		}
-		elapsedTime := time.Since(start)
-		fmt.Printf("PerfAware Elapsed time for %v = %v\n", key, elapsedTime)
-		if prevElapsedTime > elapsedTime {
-			prevElapsedTime = elapsedTime
-			ci.mutexServerUpdate.Lock()
-			taskIP = ci.serverIPs[i]
-			taskPort = ci.serverPorts[i]
-			ci.mutexServerUpdate.Unlock()
-		}
-	}
-	ci.mutexBestServer.Lock()
-	ci.taskIP = taskIP
-	ci.taskPort = taskPort
-	ci.newServer = true
-	ci.mutexBestServer.Unlock()
-
-	fmt.Printf("taskIP: %v - taskPort: %v\n", taskIP, taskPort)
 }
 
 func split(buf []byte, lim int) [][]byte {
