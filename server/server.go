@@ -111,7 +111,11 @@ func (ts *TaskServer) TestPerformance(ctx context.Context, testPerf *clientToTas
 
 		prob.Close()
 		blob.Close()
+
 		procTime = time.Since(t1)
+		ts.mutexProcTime.Lock()
+		ts.processingTime = procTime
+		ts.mutexProcTime.Unlock()
 	}
 	return &clientToTask.PerfData{
 		ProcTime: durationpb.New(procTime),
