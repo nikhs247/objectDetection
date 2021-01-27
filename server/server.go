@@ -57,9 +57,11 @@ func performDetection(frame *gocv.Mat, results gocv.Mat) {
 }
 
 func (ts *TaskServer) TestPerformance(ctx context.Context, testPerf *clientToTask.TestPerf) (*clientToTask.PerfData, error) {
-	ts.mutexUpTime.Lock()
+	var procTime time.Duration
+	ts.mutexProcTime.Lock()
+	procTime = ts.processingTime
 	diff := time.Since(ts.updateTime)
-	ts.mutexUpTime.Unlock()
+	ts.mutexProcTime.Unlock()
 
 	thresholdDuration, err := time.ParseDuration("1s")
 	if err != nil {
@@ -73,10 +75,6 @@ func (ts *TaskServer) TestPerformance(ctx context.Context, testPerf *clientToTas
 	// if err != nil {
 	// 	panic(err)
 	// }
-	var procTime time.Duration
-	ts.mutexProcTime.Lock()
-	procTime = ts.processingTime
-	ts.mutexProcTime.Unlock()
 	if !idle {
 		time.Sleep(procTime)
 	}
@@ -116,6 +114,7 @@ func (ts *TaskServer) TestPerformance(ctx context.Context, testPerf *clientToTas
 		ts.mutexProcTime.Lock()
 		ts.processingTime = procTime
 		ts.mutexProcTime.Unlock()
+		fmt.Printf("Processing time inside idle ---------------- %v\n", procTime)
 	}
 	return &clientToTask.PerfData{
 		ProcTime: durationpb.New(procTime),
@@ -138,13 +137,11 @@ func split(buf []byte, lim int) [][]byte {
 func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecvImageServer) error {
 
 	for {
-		data := make([]byte, 3000000)
+		data := make([]byte, 0)
 		var width int32
 		var height int32
 		var matType int32
-		ts.mutexUpTime.Lock()
-		ts.updateTime = time.Now()
-		ts.mutexUpTime.Unlock()
+
 		for {
 			img, err := stream.Recv()
 			if err == io.EOF {
@@ -190,10 +187,12 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecv
 		blob.Close()
 
 		ts.mutexProcTime.Lock()
+		ts.updateTime = time.Now()
 		ts.processingTime = time.Since(t1)
 		pTime := ts.processingTime
 		ts.mutexProcTime.Unlock()
 		fmt.Printf("processing time - %v\n", pTime)
+
 		dims := mat.Size()
 		imgdata := mat.ToBytes()
 		mattype := int32(mat.Type())

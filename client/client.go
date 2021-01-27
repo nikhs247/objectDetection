@@ -376,7 +376,7 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 			}
 		}
 
-		dataRecv := make([]byte, 3000000)
+		dataRecv := make([]byte, 0)
 		var width int32
 		var height int32
 		var matType int32
