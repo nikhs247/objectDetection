@@ -50,7 +50,7 @@ func logTime() {
 
 func Init(appMgrIP string, appMgrPort string) *ClientInfo {
 	var ci ClientInfo
-	ci.id = guuid.New()
+	ci.id = guuid.New().String()
 	logTime()
 	fmt.Printf("My ID %s\n", ci.id)
 	ci.appManagerIP = appMgrIP
@@ -169,7 +169,11 @@ func (ci *ClientInfo) QueryListFromAppManager() {
 			start := time.Now()
 			for j := 0; j < 3; j++ {
 				ci.mutexServerUpdate.Lock()
-				_, err := ci.service[key].TestPerformance(context.Background(), &clientToTask.TestPerf{Check: true})
+				_, err := ci.service[key].TestPerformance(context.Background(),
+					&clientToTask.TestPerf{
+						Check:    true,
+						ClientID: ci.id,
+					})
 				if err != nil {
 					log.Fatalf("Error sending test image to %s:%v", key, err)
 				}
@@ -186,7 +190,11 @@ func (ci *ClientInfo) QueryListFromAppManager() {
 			service := clientToTask.NewRpcClientToTaskClient(conn)
 			start := time.Now()
 			for j := 0; j < 3; j++ {
-				_, err := service.TestPerformance(context.Background(), &clientToTask.TestPerf{Check: true})
+				_, err := service.TestPerformance(context.Background(),
+					&clientToTask.TestPerf{
+						Check:    true,
+						ClientID: ci.id,
+					})
 				if err != nil {
 					log.Fatalf("Error sending test image to %s:%v", key, err)
 				}
@@ -239,8 +247,10 @@ func (ci *ClientInfo) QueryListFromAppManager() {
 		}
 		if available && selectedTaskIter < nMultiConn {
 			splitIpPort := strings.Split(key, ":")
+			ci.mutexServerUpdate.Lock()
 			ci.serverIPs[selectedTaskIter] = splitIpPort[0]
 			ci.serverPorts[selectedTaskIter] = splitIpPort[1]
+			ci.mutexServerUpdate.Unlock()
 			fmt.Printf("selectedTaskIter - %v\n", selectedTaskIter)
 			if selectedTaskIter == 0 {
 				ci.mutexBestServer.Lock()
@@ -359,11 +369,12 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 		for i := 0; i < nChunks; i++ {
 			if i == 0 {
 				err = stream.Send(&clientToTask.ImageData{
-					Width:   int32(dims[0]),
-					Height:  int32(dims[1]),
-					MatType: mattype,
-					Image:   chunks[i],
-					Start:   1,
+					Width:    int32(dims[0]),
+					Height:   int32(dims[1]),
+					MatType:  mattype,
+					Image:    chunks[i],
+					Start:    1,
+					ClientID: ci.id,
 				})
 
 				if err != nil {
@@ -371,8 +382,9 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 				}
 			} else if i == nChunks-1 {
 				err = stream.Send(&clientToTask.ImageData{
-					Start: 0,
-					Image: chunks[i],
+					Start:    0,
+					Image:    chunks[i],
+					ClientID: ci.id,
 				})
 
 				if err != nil {
@@ -381,8 +393,9 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 
 			} else {
 				err = stream.Send(&clientToTask.ImageData{
-					Start: -1,
-					Image: chunks[i],
+					Start:    -1,
+					Image:    chunks[i],
+					ClientID: ci.id,
 				})
 
 				if err != nil {
@@ -417,6 +430,7 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 			}
 		}
 
+		logTime()
 		fmt.Printf("Frame latency - %v \n", time.Since(t1))
 		_, err := gocv.NewMatFromBytes(int(width), int(height), gocv.MatType(matType), dataRecv)
 		if err != nil {
