@@ -197,9 +197,11 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecv
 		prob.Close()
 		blob.Close()
 
+		t2 := time.Since(t1)
+
 		ts.mutexProcTime.Lock()
 		ts.updateTime = time.Now()
-		ts.processingTime = time.Since(t1)
+		ts.processingTime = t2
 		pTime := ts.processingTime
 		ts.mutexProcTime.Unlock()
 		logTime()

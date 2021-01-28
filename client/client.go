@@ -155,7 +155,7 @@ func (ci *ClientInfo) QueryListFromAppManager() {
 	perfTime := make(map[string]time.Duration, nMultiConn)
 
 	// performance test calls
-Loop:
+Loop1:
 	for i := 0; i < len(combinedIPs); i++ {
 		key := combinedIPs[i] + ":" + combinedPorts[i]
 		available := false
@@ -185,7 +185,7 @@ Loop:
 					// delete(ci.stream, key)
 					// delete(ci.conns, key)
 					// ci.mutexServerUpdate.Unlock()
-					continue Loop
+					continue Loop1
 				}
 			}
 			perfTime[key] = time.Since(start)
@@ -207,7 +207,7 @@ Loop:
 					})
 				if err != nil {
 					// To do - fault tolerance
-					continue Loop
+					continue Loop1
 				}
 			}
 			conn.Close()
@@ -224,6 +224,7 @@ Loop:
 
 	// select the best nMultiConn set of IP:Port to connect to
 	selectedTaskIter := 0
+Loop2:
 	for i := 0; i < len(sortedTaskTimeList); i++ {
 		available := false
 		key := sortedTaskTimeList[i].Key
@@ -285,7 +286,9 @@ Loop:
 							ci.serverIPs[selectedTaskIter] = splitIpPort[0]
 							ci.serverPorts[selectedTaskIter] = splitIpPort[1]
 							ci.taskIP = splitIpPort[0]
+							currBestIP = splitIpPort[0]
 							ci.taskPort = splitIpPort[1]
+							currBestPort = splitIpPort[1]
 							ci.newServer = true
 							ci.mutexServerUpdate.Unlock()
 							selectedTaskIter++
@@ -295,6 +298,9 @@ Loop:
 				}
 			} else {
 				// set the IP:Port to selectTaskIter location
+				if splitIpPort[0] == currBestIP && splitIpPort[1] == currBestPort {
+					continue Loop2
+				}
 				ci.mutexServerUpdate.Lock()
 				ci.serverIPs[selectedTaskIter] = splitIpPort[0]
 				ci.serverPorts[selectedTaskIter] = splitIpPort[1]
@@ -302,6 +308,9 @@ Loop:
 				selectedTaskIter++
 			}
 		} else if available && selectedTaskIter >= nMultiConn {
+			if splitIpPort[0] == currBestIP && splitIpPort[1] == currBestPort {
+				continue Loop2
+			}
 			logTime()
 			fmt.Printf("**************Placing %v in backupserver\n", key)
 			ci.mutexServerUpdate.Lock()
