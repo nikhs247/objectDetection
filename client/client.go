@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	guuid "github.com/google/uuid"
 	"github.com/nikhs247/objectDetection/comms/rpc/appcomm"
 	"github.com/nikhs247/objectDetection/comms/rpc/clientToTask"
 	"gocv.io/x/gocv"
@@ -39,10 +40,19 @@ type ClientInfo struct {
 	taskIP            string
 	taskPort          string
 	newServer         bool
+	id                string
+}
+
+func logTime() {
+	currTime := time.Now()
+	fmt.Fprintf(os.Stderr, "%s", currTime.Format("2021-01-02 13:01:02"))
 }
 
 func Init(appMgrIP string, appMgrPort string) *ClientInfo {
 	var ci ClientInfo
+	ci.id = guuid.New()
+	logTime()
+	fmt.Printf("My ID %s\n", ci.id)
 	ci.appManagerIP = appMgrIP
 	ci.appManagerPort = appMgrPort
 	// ci.serverIPs = make([]string, nMultiConn)
@@ -92,7 +102,7 @@ func sortTaskInstances(perfTime map[string]time.Duration) PairList {
 func (ci *ClientInfo) QueryListFromAppManager() {
 
 	list, err := ci.appManagerService.QueryTaskList(context.Background(), &appcomm.Query{
-		ClientId: &appcomm.UUID{Value: strconv.Itoa(1)},
+		ClientId: &appcomm.UUID{Value: ci.id},
 		GeoLocation: &appcomm.Location{
 			Lat: 1.1,
 			Lon: 1.1,
@@ -150,6 +160,11 @@ func (ci *ClientInfo) QueryListFromAppManager() {
 			available = true
 		}
 		ci.mutexServerUpdate.Unlock()
+
+		grace, err := time.ParseDuration("15ms")
+		if err != nil {
+			panic(err)
+		}
 		if available {
 			start := time.Now()
 			for j := 0; j < 3; j++ {
@@ -161,7 +176,7 @@ func (ci *ClientInfo) QueryListFromAppManager() {
 				ci.mutexServerUpdate.Unlock()
 
 			}
-			perfTime[key] = time.Since(start)
+			perfTime[key] = time.Since(start) + grace
 			fmt.Printf(" Time taken - %v = %v\n", key, perfTime[key])
 		} else {
 			conn, err := grpc.Dial(key, grpc.WithInsecure())

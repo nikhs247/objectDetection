@@ -17,10 +17,12 @@ option go_package="github.com/nikhs247/objectDetection/comms/rpc/clientToTask";
         int32 matType = 3;
         bytes image = 4;
         int32 start = 5;
+        string clientID = 6;
     }
 
     message TestPerf {
         bool check = 1;
+        string clientID = 2;
     }
 
     message PerfData {
