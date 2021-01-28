@@ -101,6 +101,7 @@ func sortTaskInstances(perfTime map[string]time.Duration) PairList {
 
 func (ci *ClientInfo) QueryListFromAppManager() {
 
+	// get the list of task instance IP:Port from application manager
 	list, err := ci.appManagerService.QueryTaskList(context.Background(), &appcomm.Query{
 		ClientId: &appcomm.UUID{Value: ci.id},
 		GeoLocation: &appcomm.Location{
@@ -110,12 +111,14 @@ func (ci *ClientInfo) QueryListFromAppManager() {
 		AppId: &appcomm.UUID{Value: strconv.Itoa(1)},
 	})
 	if err != nil {
-		log.Println(err)
-		return
+		panic(err)
 	}
+
 	taskList := list.GetTaskList()
 	ips := [3]string{taskList[0].GetIp(), taskList[1].GetIp(), taskList[2].GetIp()}
 	ports := [3]string{taskList[0].GetPort(), taskList[1].GetPort(), taskList[2].GetPort()}
+
+	// First time
 	if ci.serverIPs[0] == "" {
 		ci.serverIPs = ips
 		ci.serverPorts = ports
@@ -123,11 +126,16 @@ func (ci *ClientInfo) QueryListFromAppManager() {
 		ci.taskPort = ports[0]
 		return
 	}
+
+	// backup current information about IP:Port and best IP:Port
 	ci.mutexServerUpdate.Lock()
 	existingIPs := ci.serverIPs
 	existingPorts := ci.serverPorts
+	currBestIP := ci.taskIP
+	currBestPort := ci.taskPort
 	ci.mutexServerUpdate.Unlock()
 
+	// combine current IP:Port set with the one retrieved from application manager
 	combinedIPs := make([]string, 0)
 	combinedPorts := make([]string, 0)
 	for i := 0; i < len(ips); i++ {
@@ -142,29 +150,26 @@ func (ci *ClientInfo) QueryListFromAppManager() {
 			combinedIPs = append(combinedIPs, ips[i])
 			combinedPorts = append(combinedPorts, ports[i])
 		}
-		// if !found {
-		// 	ci.mutexServerUpdate.Lock()
-		// 	ci.backupServers[ci.serverIPs[i]+":"+ci.serverPorts[i]] = true
-		// 	ci.mutexServerUpdate.Unlock()
-		// }
 	}
 	combinedIPs = append(combinedIPs, existingIPs[:]...)
 	combinedPorts = append(combinedPorts, existingPorts[:]...)
+
+	// stores cumulative time taken by each task instance for 3 performance test calls
 	perfTime := make(map[string]time.Duration, nMultiConn)
 
+	// performance test calls
 	for i := 0; i < len(combinedIPs); i++ {
 		key := combinedIPs[i] + ":" + combinedPorts[i]
 		available := false
+
+		// check if IP:Port is already available
 		ci.mutexServerUpdate.Lock()
 		if _, ok := ci.service[key]; ok {
 			available = true
 		}
 		ci.mutexServerUpdate.Unlock()
 
-		grace, err := time.ParseDuration("15ms")
-		if err != nil {
-			panic(err)
-		}
+		// if available, then directly call the test performance using stored service handle
 		if available {
 			start := time.Now()
 			for j := 0; j < 3; j++ {
@@ -178,11 +183,11 @@ func (ci *ClientInfo) QueryListFromAppManager() {
 					log.Fatalf("Error sending test image to %s:%v", key, err)
 				}
 				ci.mutexServerUpdate.Unlock()
-
 			}
-			perfTime[key] = time.Since(start) + grace
+			perfTime[key] = time.Since(start)
 			fmt.Printf(" Time taken - %v = %v\n", key, perfTime[key])
 		} else {
+			// if not available, then create connection and service temporarily for performance test
 			conn, err := grpc.Dial(key, grpc.WithInsecure())
 			if err != nil {
 				log.Fatalf("Connection to server failed: %v", err)
@@ -204,8 +209,11 @@ func (ci *ClientInfo) QueryListFromAppManager() {
 		}
 	}
 
+	// soted list of <<IP:Port>, Duration>
 	sortedTaskTimeList := sortTaskInstances(perfTime)
 	fmt.Printf("Ordered tasks: %v\n", sortedTaskTimeList)
+
+	// select the best nMultiConn set of IP:Port to connect to
 	selectedTaskIter := 0
 	for i := 0; i < len(sortedTaskTimeList); i++ {
 		available := false
@@ -215,6 +223,14 @@ func (ci *ClientInfo) QueryListFromAppManager() {
 			available = true
 		}
 		ci.mutexServerUpdate.Unlock()
+
+		splitIpPort := strings.Split(key, ":")
+		grace, err := time.ParseDuration("15ms")
+		if err != nil {
+			panic(err)
+		}
+
+		// if the IP:Port is not connected and selected task instances < nMultiConn, create connection, service and stream
 		if !available && selectedTaskIter < nMultiConn {
 			ci.mutexServerUpdate.Lock()
 			conn, err := grpc.Dial(key, grpc.WithInsecure())
@@ -228,51 +244,89 @@ func (ci *ClientInfo) QueryListFromAppManager() {
 				log.Fatalf("Client stide creation failed: %v", err)
 			}
 			ci.stream[key] = stream
-			splitIpPort := strings.Split(key, ":")
-			ci.serverIPs[selectedTaskIter] = splitIpPort[0]
-			ci.serverPorts[selectedTaskIter] = splitIpPort[1]
 			ci.mutexServerUpdate.Unlock()
 
 			if selectedTaskIter == 0 {
-				ci.mutexBestServer.Lock()
-				if ci.taskIP != splitIpPort[0] || ci.taskPort != splitIpPort[1] {
-					fmt.Printf("New server - %v : %v\n", splitIpPort[0], splitIpPort[0])
-					ci.taskIP = splitIpPort[0]
-					ci.taskPort = splitIpPort[1]
-					ci.newServer = true
+				// check if the existing best task is present in the sortedTaskTimeList
+				for k := 0; k < len(sortedTaskTimeList); k++ {
+					if sortedTaskTimeList[k].Key == currBestIP+":"+currBestPort {
+						// check if k=0 or k's time < new task time + 15 ms grace
+						if (k == 0) || (sortedTaskTimeList[k].Value < (grace + sortedTaskTimeList[0].Value)) {
+							// maintain the status of current task and add the new task
+							// as second best
+							selectedTaskIter++
+							ci.mutexServerUpdate.Lock()
+							ci.serverIPs[selectedTaskIter] = splitIpPort[0]
+							ci.serverPorts[selectedTaskIter] = splitIpPort[1]
+							ci.mutexServerUpdate.Unlock()
+							selectedTaskIter++
+						} else {
+							// else add the new task as best
+							ci.mutexServerUpdate.Lock()
+							ci.serverIPs[selectedTaskIter] = splitIpPort[0]
+							ci.serverPorts[selectedTaskIter] = splitIpPort[1]
+							ci.taskIP = splitIpPort[0]
+							ci.taskPort = splitIpPort[1]
+							ci.newServer = true
+							ci.mutexServerUpdate.Unlock()
+							selectedTaskIter++
+						}
+						break
+					}
 				}
-				ci.mutexBestServer.Unlock()
+			} else {
+				// set the IP:Port to selectTaskIter location
+				ci.mutexServerUpdate.Lock()
+				ci.serverIPs[selectedTaskIter] = splitIpPort[0]
+				ci.serverPorts[selectedTaskIter] = splitIpPort[1]
+				ci.mutexServerUpdate.Unlock()
+				selectedTaskIter++
 			}
-
-		}
-		if available && selectedTaskIter < nMultiConn {
-			splitIpPort := strings.Split(key, ":")
-			ci.mutexServerUpdate.Lock()
-			ci.serverIPs[selectedTaskIter] = splitIpPort[0]
-			ci.serverPorts[selectedTaskIter] = splitIpPort[1]
-			ci.mutexServerUpdate.Unlock()
-			fmt.Printf("selectedTaskIter - %v\n", selectedTaskIter)
+		} else if available && selectedTaskIter < nMultiConn {
 			if selectedTaskIter == 0 {
-				ci.mutexBestServer.Lock()
-				fmt.Printf("%v != %v && %v != %v\n", ci.taskIP, splitIpPort[0], ci.taskPort, splitIpPort[1])
-				if ci.taskIP != splitIpPort[0] || ci.taskPort != splitIpPort[1] {
-					fmt.Printf("New server - %v : %v\n", splitIpPort[0], splitIpPort[0])
-					ci.taskIP = splitIpPort[0]
-					ci.taskPort = splitIpPort[1]
-					ci.newServer = true
+				// check if the existing best task is present in the sortedTaskTimeList
+				for k := 0; k < len(sortedTaskTimeList); k++ {
+					if sortedTaskTimeList[k].Key == currBestIP+":"+currBestPort {
+						// check if k=0 or k's time < new task time + 15 ms grace
+						if (k == 0) || (sortedTaskTimeList[k].Value < (grace + sortedTaskTimeList[0].Value)) {
+							// maintain the status of current task and add the new task
+							// as second best
+							selectedTaskIter++
+							ci.mutexServerUpdate.Lock()
+							ci.serverIPs[selectedTaskIter] = splitIpPort[0]
+							ci.serverPorts[selectedTaskIter] = splitIpPort[1]
+							ci.mutexServerUpdate.Unlock()
+							selectedTaskIter++
+						} else {
+							// else add the new task as best
+							ci.mutexServerUpdate.Lock()
+							ci.serverIPs[selectedTaskIter] = splitIpPort[0]
+							ci.serverPorts[selectedTaskIter] = splitIpPort[1]
+							ci.taskIP = splitIpPort[0]
+							ci.taskPort = splitIpPort[1]
+							ci.newServer = true
+							ci.mutexServerUpdate.Unlock()
+							selectedTaskIter++
+						}
+						break
+					}
 				}
-				ci.mutexBestServer.Unlock()
+			} else {
+				// set the IP:Port to selectTaskIter location
+				ci.mutexServerUpdate.Lock()
+				ci.serverIPs[selectedTaskIter] = splitIpPort[0]
+				ci.serverPorts[selectedTaskIter] = splitIpPort[1]
+				ci.mutexServerUpdate.Unlock()
+				selectedTaskIter++
 			}
-		}
-		if available && selectedTaskIter >= nMultiConn {
+		} else if available && selectedTaskIter >= nMultiConn {
 			ci.mutexServerUpdate.Lock()
 			ci.backupServers[key] = true
 			ci.mutexServerUpdate.Unlock()
+			selectedTaskIter++
 		}
-		selectedTaskIter++
 	}
 	fmt.Printf("Current top task intance %v:%v\n", ci.taskIP, ci.taskPort)
-
 }
 
 func (ci *ClientInfo) PeriodicFuncCalls(wg *sync.WaitGroup) {

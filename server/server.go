@@ -119,6 +119,7 @@ func (ts *TaskServer) TestPerformance(ctx context.Context, testPerf *clientToTas
 
 		procTime = time.Since(t1)
 		ts.mutexProcTime.Lock()
+		ts.updateTime = time.Now()
 		ts.processingTime = procTime
 		ts.mutexProcTime.Unlock()
 
@@ -294,6 +295,7 @@ func main() {
 		mutexProcTime:  &sync.Mutex{},
 		mutexUpTime:    &sync.Mutex{},
 		processingTime: dur,
+		updateTime:     time.Time{},
 		appInfo:        ai,
 	}
 	ts.ListenRoutine()
