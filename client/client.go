@@ -158,14 +158,17 @@ func (ci *ClientInfo) QueryListFromAppManager() {
 	perfTime := make(map[string]time.Duration, nMultiConn)
 
 	// performance test calls
+Loop:
 	for i := 0; i < len(combinedIPs); i++ {
 		key := combinedIPs[i] + ":" + combinedPorts[i]
 		available := false
 
+		var service clientToTask.RpcClientToTaskClient
 		// check if IP:Port is already available
 		ci.mutexServerUpdate.Lock()
 		if _, ok := ci.service[key]; ok {
 			available = true
+			service = ci.service[key]
 		}
 		ci.mutexServerUpdate.Unlock()
 
@@ -173,16 +176,20 @@ func (ci *ClientInfo) QueryListFromAppManager() {
 		if available {
 			start := time.Now()
 			for j := 0; j < 3; j++ {
-				ci.mutexServerUpdate.Lock()
-				_, err := ci.service[key].TestPerformance(context.Background(),
+				_, err := service.TestPerformance(context.Background(),
 					&clientToTask.TestPerf{
 						Check:    true,
 						ClientID: ci.id,
 					})
 				if err != nil {
-					log.Fatalf("Error sending test image to %s:%v", key, err)
+					// To do -  Fault tolerance
+					// ci.mutexServerUpdate.Lock()
+					// delete(ci.service, key)
+					// delete(ci.stream, key)
+					// delete(ci.conns, key)
+					// ci.mutexServerUpdate.Unlock()
+					continue Loop
 				}
-				ci.mutexServerUpdate.Unlock()
 			}
 			perfTime[key] = time.Since(start)
 			fmt.Printf(" Time taken - %v = %v\n", key, perfTime[key])
@@ -201,7 +208,8 @@ func (ci *ClientInfo) QueryListFromAppManager() {
 						ClientID: ci.id,
 					})
 				if err != nil {
-					log.Fatalf("Error sending test image to %s:%v", key, err)
+					// To do - fault tolerance
+					continue Loop
 				}
 			}
 			conn.Close()
@@ -209,7 +217,7 @@ func (ci *ClientInfo) QueryListFromAppManager() {
 		}
 	}
 
-	// soted list of <<IP:Port>, Duration>
+	// sorted list of <<IP:Port>, Duration>
 	sortedTaskTimeList := sortTaskInstances(perfTime)
 	fmt.Printf("Ordered tasks: %v\n", sortedTaskTimeList)
 
@@ -232,63 +240,34 @@ func (ci *ClientInfo) QueryListFromAppManager() {
 
 		// if the IP:Port is not connected and selected task instances < nMultiConn, create connection, service and stream
 		if !available && selectedTaskIter < nMultiConn {
-			ci.mutexServerUpdate.Lock()
 			conn, err := grpc.Dial(key, grpc.WithInsecure())
 			if err != nil {
 				log.Fatalf("Connection to server failed: %v", err)
 			}
-			ci.conns[key] = conn
-			ci.service[key] = clientToTask.NewRpcClientToTaskClient(conn)
+			service := clientToTask.NewRpcClientToTaskClient(conn)
 			stream, err := ci.service[key].SendRecvImage(context.Background())
 			if err != nil {
-				log.Fatalf("Client stide creation failed: %v", err)
+				// To do  - fault tolerance
+				log.Fatalf("Client side creation failed: %v", err)
 			}
+			ci.mutexServerUpdate.Lock()
+			ci.conns[key] = conn
+			ci.service[key] = service
 			ci.stream[key] = stream
 			ci.mutexServerUpdate.Unlock()
+		}
+
+		if (!available && selectedTaskIter < nMultiConn) ||
+			(available && selectedTaskIter < nMultiConn) {
 
 			if selectedTaskIter == 0 {
 				// check if the existing best task is present in the sortedTaskTimeList
 				for k := 0; k < len(sortedTaskTimeList); k++ {
 					if sortedTaskTimeList[k].Key == currBestIP+":"+currBestPort {
 						// check if k=0 or k's time < new task time + 15 ms grace
-						if (k == 0) || (sortedTaskTimeList[k].Value < (grace + sortedTaskTimeList[0].Value)) {
-							// maintain the status of current task and add the new task
-							// as second best
+						if k == 0 {
 							selectedTaskIter++
-							ci.mutexServerUpdate.Lock()
-							ci.serverIPs[selectedTaskIter] = splitIpPort[0]
-							ci.serverPorts[selectedTaskIter] = splitIpPort[1]
-							ci.mutexServerUpdate.Unlock()
-							selectedTaskIter++
-						} else {
-							// else add the new task as best
-							ci.mutexServerUpdate.Lock()
-							ci.serverIPs[selectedTaskIter] = splitIpPort[0]
-							ci.serverPorts[selectedTaskIter] = splitIpPort[1]
-							ci.taskIP = splitIpPort[0]
-							ci.taskPort = splitIpPort[1]
-							ci.newServer = true
-							ci.mutexServerUpdate.Unlock()
-							selectedTaskIter++
-						}
-						break
-					}
-				}
-			} else {
-				// set the IP:Port to selectTaskIter location
-				ci.mutexServerUpdate.Lock()
-				ci.serverIPs[selectedTaskIter] = splitIpPort[0]
-				ci.serverPorts[selectedTaskIter] = splitIpPort[1]
-				ci.mutexServerUpdate.Unlock()
-				selectedTaskIter++
-			}
-		} else if available && selectedTaskIter < nMultiConn {
-			if selectedTaskIter == 0 {
-				// check if the existing best task is present in the sortedTaskTimeList
-				for k := 0; k < len(sortedTaskTimeList); k++ {
-					if sortedTaskTimeList[k].Key == currBestIP+":"+currBestPort {
-						// check if k=0 or k's time < new task time + 15 ms grace
-						if (k == 0) || (sortedTaskTimeList[k].Value < (grace + sortedTaskTimeList[0].Value)) {
+						} else if sortedTaskTimeList[k].Value < (grace + sortedTaskTimeList[0].Value) {
 							// maintain the status of current task and add the new task
 							// as second best
 							selectedTaskIter++
@@ -391,6 +370,11 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 	defer img.Close()
 
 	nImagesSent := 0
+	var stream clientToTask.RpcClientToTask_SendRecvImageClient
+	ci.mutexServerUpdate.Lock()
+	ci.newServer = false
+	stream = ci.stream[ci.taskIP+":"+ci.taskPort]
+	ci.mutexServerUpdate.Unlock()
 	for {
 
 		if ok := video.Read(&img); !ok {
@@ -405,15 +389,13 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 		dataSend := img.ToBytes()
 		mattype := int32(img.Type())
 
-		ci.mutexBestServer.Lock()
+		ci.mutexServerUpdate.Lock()
 		if ci.newServer {
 			taskIP = ci.taskIP
 			taskPort = ci.taskPort
 			ci.newServer = false
+			stream = ci.stream[taskIP+":"+taskPort]
 		}
-		ci.mutexBestServer.Unlock()
-		ci.mutexServerUpdate.Lock()
-		stream := ci.stream[taskIP+":"+taskPort]
 		ci.mutexServerUpdate.Unlock()
 
 		chunks := split(dataSend, 4096)
@@ -492,7 +474,7 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 		}
 
 		ci.mutexServerUpdate.Lock()
-		key := taskIP + ":" + taskPort
+		key := ci.taskIP + ":" + ci.taskPort
 		if _, ok := ci.backupServers[taskIP+":"+taskPort]; ok {
 			ci.conns[key].Close()
 			delete(ci.service, key)
