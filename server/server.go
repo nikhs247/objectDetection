@@ -62,6 +62,7 @@ func performDetection(frame *gocv.Mat, results gocv.Mat) {
 }
 
 func (ts *TaskServer) TestPerformance(ctx context.Context, testPerf *clientToTask.TestPerf) (*clientToTask.PerfData, error) {
+	clientID := testPerf.GetClientID()
 	var procTime time.Duration
 	ts.mutexProcTime.Lock()
 	procTime = ts.processingTime
@@ -120,7 +121,7 @@ func (ts *TaskServer) TestPerformance(ctx context.Context, testPerf *clientToTas
 		ts.processingTime = procTime
 		ts.mutexProcTime.Unlock()
 		logTime()
-		fmt.Printf("Processing time inside idle ---------------- %v\n", procTime)
+		fmt.Printf("%s: Processing time inside idle ---------------- %v\n", clientID, procTime)
 	}
 	return &clientToTask.PerfData{
 		ProcTime: durationpb.New(procTime),
@@ -147,6 +148,7 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecv
 		var width int32
 		var height int32
 		var matType int32
+		var clientID string
 
 		t1 := time.Now()
 		for {
@@ -163,6 +165,7 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecv
 				width = img.GetWidth()
 				height = img.GetHeight()
 				matType = img.GetMatType()
+				clientID = img.GetClientID()
 			}
 
 			chunk := img.GetImage()
@@ -239,7 +242,7 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecv
 		pTime := ts.processingTime
 		ts.mutexProcTime.Unlock()
 		logTime()
-		fmt.Printf("processing time - %v\n", pTime)
+		fmt.Printf("%s:Processing time - %v\n", clientID, pTime)
 	}
 }
 
