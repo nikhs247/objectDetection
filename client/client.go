@@ -54,8 +54,6 @@ func Init(appMgrIP string, appMgrPort string) *ClientInfo {
 	fmt.Printf("My ID %s\n", ci.id)
 	ci.appManagerIP = appMgrIP
 	ci.appManagerPort = appMgrPort
-	// ci.serverIPs = make([]string, nMultiConn)
-	// ci.serverPorts = make([]string, nMultiConn)
 	ci.backupServers = make(map[string]bool, nMultiConn)
 	ci.conns = make(map[string]*grpc.ClientConn, nMultiConn)
 	ci.service = make(map[string]clientToTask.RpcClientToTaskClient, nMultiConn)
