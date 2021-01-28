@@ -119,9 +119,6 @@ func (ts *TaskServer) TestPerformance(ctx context.Context, testPerf *clientToTas
 		blob.Close()
 
 		procTime = time.Since(t1)
-		ts.mutexProcTime.Lock()
-		ts.processingTime = procTime
-		ts.mutexProcTime.Unlock()
 		logTime()
 		fmt.Printf("%s: Processing time inside idle ---------------- %v\n", clientID, procTime)
 	}
