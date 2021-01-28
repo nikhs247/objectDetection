@@ -120,6 +120,10 @@ func (ts *TaskServer) TestPerformance(ctx context.Context, testPerf *clientToTas
 		blob.Close()
 
 		procTime = time.Since(t1)
+		ts.mutexProcTime.Lock()
+		ts.processingTime = procTime
+		ts.mutexProcTime.Unlock()
+
 		logTime()
 		fmt.Printf("%s: Processing time inside idle ---------------- %v\n", clientID, procTime)
 	}
@@ -150,7 +154,6 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecv
 		var matType int32
 		var clientID string
 
-		t1 := time.Now()
 		for {
 			img, err := stream.Recv()
 			if err == io.EOF {
@@ -176,6 +179,7 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecv
 			}
 		}
 
+		t1 := time.Now()
 		mat, err := gocv.NewMatFromBytes(int(width), int(height), gocv.MatType(matType), data)
 		if err != nil {
 			log.Fatalf("Error converting bytes to matrix: %v", err)
@@ -194,6 +198,14 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecv
 
 		prob.Close()
 		blob.Close()
+
+		ts.mutexProcTime.Lock()
+		ts.updateTime = time.Now()
+		ts.processingTime = time.Since(t1)
+		pTime := ts.processingTime
+		ts.mutexProcTime.Unlock()
+		logTime()
+		fmt.Printf("%s:Processing time - %v\n", clientID, pTime)
 
 		dims := mat.Size()
 		imgdata := mat.ToBytes()
@@ -235,14 +247,6 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecv
 				}
 			}
 		}
-
-		ts.mutexProcTime.Lock()
-		ts.updateTime = time.Now()
-		ts.processingTime = time.Since(t1)
-		pTime := ts.processingTime
-		ts.mutexProcTime.Unlock()
-		logTime()
-		fmt.Printf("%s:Processing time - %v\n", clientID, pTime)
 	}
 }
 
