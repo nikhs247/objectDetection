@@ -73,19 +73,17 @@ func (ts *TaskServer) TestPerformance(ctx context.Context, testPerf *clientToTas
 	if err != nil {
 		panic(err)
 	}
+	fmt.Printf("The difference is %v\n", diff)
 	idle := false
 	if diff > thresholdDuration {
 		idle = true
 	}
-	// dur, err := time.ParseDuration("0h")
-	// if err != nil {
-	// 	panic(err)
-	// }
+
 	if !idle {
 		t1 := time.Now()
 		time.Sleep(procTime)
 		logTime()
-		fmt.Printf("%s: Processing time inside busy ---------------- %v\n", clientID, time.Since(t1))
+		fmt.Printf("%s: Processing time inside busy with diff %v---------------- %v - %v\n", clientID, diff, procTime, time.Since(t1))
 	}
 
 	if idle {
@@ -125,7 +123,7 @@ func (ts *TaskServer) TestPerformance(ctx context.Context, testPerf *clientToTas
 		ts.mutexProcTime.Unlock()
 
 		logTime()
-		fmt.Printf("%s: Processing time inside idle ---------------- %v\n", clientID, procTime)
+		fmt.Printf("%s: Processing time inside idle with diff %v ---------------- %v\n", clientID, diff, procTime)
 	}
 	return &clientToTask.PerfData{
 		ProcTime: durationpb.New(procTime),
