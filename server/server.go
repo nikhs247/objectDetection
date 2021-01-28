@@ -84,6 +84,7 @@ func (ts *TaskServer) TestPerformance(ctx context.Context, testPerf *clientToTas
 	if !idle {
 		t1 := time.Now()
 		time.Sleep(procTime)
+		logTime()
 		fmt.Printf("%s: Processing time inside busy ---------------- %v\n", clientID, time.Since(t1))
 	}
 
