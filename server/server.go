@@ -39,8 +39,7 @@ type TaskServer struct {
 }
 
 func logTime() {
-	currTime := time.Now()
-	fmt.Fprintf(os.Stderr, "%s", currTime.Format("2021-01-02 13:01:02"))
+	fmt.Fprintf(os.Stderr, "[%s] ", time.Now().Format("2006-01-02 15:04:05"))
 }
 
 // performDetection analyzes the results from the detector network,
