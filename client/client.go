@@ -495,6 +495,8 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 		nChunks := len(chunks)
 
 		t1 := time.Now()
+
+		t = time.Now()
 		for i := 0; i < nChunks; i++ {
 			if i == 0 {
 				err = stream.Send(&clientToTask.ImageData{
@@ -532,11 +534,14 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 				}
 			}
 		}
+		logTime()
+		fmt.Printf("Send - %v\n", time.Since(t))
 
 		dataRecv := make([]byte, 0)
 		var width int32
 		var height int32
 		var matType int32
+		t = time.Now()
 		for {
 			img, err := stream.Recv()
 			if err == io.EOF {
@@ -558,6 +563,8 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 				break
 			}
 		}
+		logTime()
+		fmt.Printf("Recv - %v\n", time.Since(t))
 
 		logTime()
 		fmt.Printf("Frame latency - %v \n", time.Since(t1))
