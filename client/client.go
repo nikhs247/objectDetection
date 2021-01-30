@@ -566,8 +566,16 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 		logTime()
 		fmt.Printf("Recv - %v\n", time.Since(t))
 
+		frameTime := time.Since(t1)
 		logTime()
-		fmt.Printf("Frame latency - %v \n", time.Since(t1))
+		fmt.Printf("Frame latency - %v \n", frameTime)
+		upperThreshold, errs := time.ParseDuration("1s")
+		if errs != nil {
+			panic(err)
+		}
+		if frameTime > upperThreshold {
+			os.Exit(0)
+		}
 		_, err := gocv.NewMatFromBytes(int(width), int(height), gocv.MatType(matType), dataRecv)
 		if err != nil {
 			log.Fatalf("Error converting bytes to matrix: %v", err)

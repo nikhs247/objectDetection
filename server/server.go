@@ -63,10 +63,16 @@ func performDetection(frame *gocv.Mat, results gocv.Mat) {
 func (ts *TaskServer) TestPerformance(ctx context.Context, testPerf *clientToTask.TestPerf) (*clientToTask.PerfData, error) {
 	clientID := testPerf.GetClientID()
 	var procTime time.Duration
+
+	t := time.Now()
+	logTime()
+	fmt.Printf("Lock 1\n")
 	ts.mutexProcTime.Lock()
 	procTime = ts.processingTime
 	diff := time.Since(ts.updateTime)
 	ts.mutexProcTime.Unlock()
+	logTime()
+	fmt.Printf("Lock 1 - %v\n", time.Since(t))
 
 	thresholdDuration, err := time.ParseDuration("1s")
 	if err != nil {
@@ -117,10 +123,15 @@ func (ts *TaskServer) TestPerformance(ctx context.Context, testPerf *clientToTas
 		blob.Close()
 
 		procTime = time.Since(t1)
+		t = time.Now()
+		logTime()
+		fmt.Printf("Lock 2\n")
 		ts.mutexProcTime.Lock()
 		ts.updateTime = time.Now()
 		ts.processingTime = procTime
 		ts.mutexProcTime.Unlock()
+		t := time.Now()
+		fmt.Printf("Lock 2 - %v\n", time.Since(t))
 
 		logTime()
 		fmt.Printf("%s: Processing time inside idle with diff %v ---------------- %v\n", clientID, diff, procTime)
@@ -199,11 +210,16 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecv
 
 		t2 := time.Since(t1)
 
+		t := time.Now()
+		logTime()
+		fmt.Printf("Lock 3\n")
 		ts.mutexProcTime.Lock()
 		ts.updateTime = time.Now()
 		ts.processingTime = t2
 		pTime := ts.processingTime
 		ts.mutexProcTime.Unlock()
+		logTime()
+		fmt.Printf("Lock 3 - %v\n", time.Since(t))
 		logTime()
 		fmt.Printf("%s:Processing time - %v\n", clientID, pTime)
 
