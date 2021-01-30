@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"os"
 	"sort"
 	"strconv"
@@ -352,6 +353,8 @@ func (ci *ClientInfo) PeriodicFuncCalls(wg *sync.WaitGroup) {
 	for {
 		select {
 		case <-queryListTicker.C:
+			rand.Seed(time.Now().UTC().UnixNano())
+			time.Sleep(time.Duration(rand.Float32()*2) * (time.Second))
 			ci.QueryListFromAppManager()
 		}
 	}
