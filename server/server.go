@@ -112,11 +112,18 @@ func (ts *TaskServer) TestPerformance(ctx context.Context, testPerf *clientToTas
 		// convert image Mat to 300x300 blob that the object detector can analyze
 		blob := gocv.BlobFromImage(mat, ts.appInfo.ratio, image.Pt(300, 300), ts.appInfo.mean, ts.appInfo.swapRGB, false)
 
+		logTime()
+		fmt.Printf("Test Lock algo\n")
+		algoTime := time.Now()
+		ts.mutexAlgo.Lock()
 		// feed the blob into the detector
 		ts.appInfo.net.SetInput(blob, "")
 
 		// run a forward pass thru the network
 		prob := ts.appInfo.net.Forward("")
+		ts.mutexAlgo.Unlock()
+		logTime()
+		fmt.Printf("Test Lock algo - %v\n", time.Since(algoTime))
 
 		performDetection(&mat, prob)
 
@@ -124,15 +131,15 @@ func (ts *TaskServer) TestPerformance(ctx context.Context, testPerf *clientToTas
 		blob.Close()
 
 		procTime = time.Since(t1)
-		t = time.Now()
-		logTime()
-		fmt.Printf("Lock 2\n")
+		// t = time.Now()
+		// logTime()
+		// fmt.Printf("Lock 2\n")
 		ts.mutexProcTime.Lock()
 		ts.updateTime = time.Now()
 		ts.processingTime = procTime
 		ts.mutexProcTime.Unlock()
-		t := time.Now()
-		fmt.Printf("Lock 2 - %v\n", time.Since(t))
+		// t := time.Now()
+		// fmt.Printf("Lock 2 - %v\n", time.Since(t))
 
 		logTime()
 		fmt.Printf("%s: Processing time inside idle with diff %v ---------------- %v\n", clientID, diff, procTime)
@@ -199,7 +206,7 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecv
 		blob := gocv.BlobFromImage(mat, ts.appInfo.ratio, image.Pt(300, 300), ts.appInfo.mean, ts.appInfo.swapRGB, false)
 
 		logTime()
-		fmt.Printf("Lock algo\n")
+		fmt.Printf("Main Lock algo\n")
 		algoTime := time.Now()
 		ts.mutexAlgo.Lock()
 		// feed the blob into the detector
@@ -209,7 +216,7 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecv
 		prob := ts.appInfo.net.Forward("")
 		ts.mutexAlgo.Unlock()
 		logTime()
-		fmt.Printf("Lock algo - %v\n", time.Since(algoTime))
+		fmt.Printf("Main Lock algo - %v\n", time.Since(algoTime))
 
 		performDetection(&mat, prob)
 
@@ -218,16 +225,16 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecv
 
 		t2 := time.Since(t1)
 
-		t := time.Now()
-		logTime()
-		fmt.Printf("Lock 3\n")
+		// t := time.Now()
+		// logTime()
+		// fmt.Printf("Lock 3\n")
 		ts.mutexProcTime.Lock()
 		ts.updateTime = time.Now()
 		ts.processingTime = t2
 		pTime := ts.processingTime
 		ts.mutexProcTime.Unlock()
-		logTime()
-		fmt.Printf("Lock 3 - %v\n", time.Since(t))
+		// logTime()
+		// fmt.Printf("Lock 3 - %v\n", time.Since(t))
 		logTime()
 		fmt.Printf("%s:Processing time - %v\n", clientID, pTime)
 
