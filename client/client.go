@@ -50,8 +50,6 @@ func logTime() {
 func Init(appMgrIP string, appMgrPort string) *ClientInfo {
 	var ci ClientInfo
 	ci.id = guuid.New().String()
-	// logTime()
-	// fmt.Printf("My ID %s\n", ci.id)
 	ci.appManagerIP = appMgrIP
 	ci.appManagerPort = appMgrPort
 	ci.backupServers = make(map[string]bool, nMultiConn)
@@ -125,17 +123,12 @@ func (ci *ClientInfo) QueryListFromAppManager() {
 	}
 
 	// backup current information about IP:Port and best IP:Port
-	t := time.Now()
-	logTime()
-	fmt.Printf("Lock 1\n")
 	ci.mutexServerUpdate.Lock()
 	existingIPs := ci.serverIPs
 	existingPorts := ci.serverPorts
 	currBestIP := ci.taskIP
 	currBestPort := ci.taskPort
 	ci.mutexServerUpdate.Unlock()
-	logTime()
-	fmt.Printf("Lock 1 - %v", time.Since(t))
 
 	// combine current IP:Port set with the one retrieved from application manager
 	combinedIPs := make([]string, 0)
@@ -194,8 +187,6 @@ Loop1:
 				}
 			}
 			perfTime[key] = time.Since(start)
-			// logTime()
-			// fmt.Printf("Time taken available - %v = %v\n", key, perfTime[key])
 		} else {
 			// if not available, then create connection and service temporarily for performance test
 			conn, err := grpc.Dial(key, grpc.WithInsecure())
@@ -217,15 +208,11 @@ Loop1:
 			}
 			conn.Close()
 			perfTime[key] = time.Since(start)
-			// logTime()
-			// fmt.Printf("Time taken available - %v = %v\n", key, perfTime[key])
 		}
 	}
 
 	// sorted list of <<IP:Port>, Duration>
 	sortedTaskTimeList := sortTaskInstances(perfTime)
-	// logTime()
-	// fmt.Printf("Ordered tasks: %v\n", sortedTaskTimeList)
 
 	// select the best nMultiConn set of IP:Port to connect to
 	selectedTaskIter := 0
@@ -248,16 +235,11 @@ Loop1:
 	for i := 0; i < len(sortedTaskTimeList); i++ {
 		available := false
 		key := sortedTaskTimeList[i].Key
-		t = time.Now()
-		logTime()
-		fmt.Printf("Lock 2\n")
 		ci.mutexServerUpdate.Lock()
 		if _, ok := ci.service[key]; ok {
 			available = true
 		}
 		ci.mutexServerUpdate.Unlock()
-		logTime()
-		fmt.Printf("Lock 2 - %v\n", time.Since(t))
 		availability[i] = available
 	}
 
@@ -308,25 +290,12 @@ Loop2:
 							// maintain the status of current task and add the new task
 							// as second best
 							selectedTaskIter++
-							// ci.mutexServerUpdate.Lock()
-							// ci.serverIPs[selectedTaskIter] = splitIpPort[0]
-							// ci.serverPorts[selectedTaskIter] = splitIpPort[1]
-							// ci.mutexServerUpdate.Unlock()
-
 							ipNew[selectedTaskIter] = splitIpPort[0]
 							portNew[selectedTaskIter] = splitIpPort[1]
 
 							selectedTaskIter++
 						} else {
 							// else add the new task as best
-							// ci.mutexServerUpdate.Lock()
-							// ci.serverIPs[selectedTaskIter] = splitIpPort[0]
-							// ci.serverPorts[selectedTaskIter] = splitIpPort[1]
-							// ci.taskIP = splitIpPort[0]
-							// ci.taskPort = splitIpPort[1]
-							// ci.newServer = true
-							// ci.mutexServerUpdate.Unlock()
-
 							ipNew[selectedTaskIter] = splitIpPort[0]
 							portNew[selectedTaskIter] = splitIpPort[1]
 							newserver = true
@@ -342,11 +311,6 @@ Loop2:
 				if splitIpPort[0] == currBestIP && splitIpPort[1] == currBestPort {
 					continue Loop2
 				}
-				// ci.mutexServerUpdate.Lock()
-				// ci.serverIPs[selectedTaskIter] = splitIpPort[0]
-				// ci.serverPorts[selectedTaskIter] = splitIpPort[1]
-				// ci.mutexServerUpdate.Unlock()
-
 				ipNew[selectedTaskIter] = splitIpPort[0]
 				portNew[selectedTaskIter] = splitIpPort[1]
 
@@ -356,15 +320,10 @@ Loop2:
 			if splitIpPort[0] == currBestIP && splitIpPort[1] == currBestPort {
 				continue Loop2
 			}
-			// logTime()
-			// fmt.Printf("**************Placing %v in backupserver\n", key)
 			backupServers[key] = true
 		}
 	}
 
-	t = time.Now()
-	logTime()
-	fmt.Printf("Lock 3\n")
 	ci.mutexServerUpdate.Lock()
 	ci.serverIPs = ipNew
 	ci.serverPorts = portNew
@@ -384,16 +343,6 @@ Loop2:
 		ci.backupServers[k] = v
 	}
 	ci.mutexServerUpdate.Unlock()
-
-	logTime()
-	fmt.Printf("Lock 3 - %v\n", time.Since(t))
-	// ci.mutexServerUpdate.Lock()
-	// logTime()
-	// fmt.Printf("Current IP:Port list ---- %v *** %v", ci.serverIPs, ci.serverPorts)
-	// logTime()
-	// fmt.Printf("Current top task instance %v:%v\n", ci.taskIP, ci.taskPort)
-	// ci.mutexServerUpdate.Unlock()
-
 }
 
 func (ci *ClientInfo) PeriodicFuncCalls(wg *sync.WaitGroup) {
@@ -477,9 +426,6 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 		dataSend := img.ToBytes()
 		mattype := int32(img.Type())
 
-		t := time.Now()
-		logTime()
-		fmt.Printf("Lock 4\n")
 		ci.mutexServerUpdate.Lock()
 		if ci.newServer {
 			taskIP = ci.taskIP
@@ -488,15 +434,12 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 			stream = ci.stream[taskIP+":"+taskPort]
 		}
 		ci.mutexServerUpdate.Unlock()
-		logTime()
-		fmt.Printf("Lock 4 - %v\n", time.Since(t))
 
 		chunks := split(dataSend, 4096)
 		nChunks := len(chunks)
 
 		t1 := time.Now()
 
-		t = time.Now()
 		for i := 0; i < nChunks; i++ {
 			if i == 0 {
 				err = stream.Send(&clientToTask.ImageData{
@@ -534,14 +477,12 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 				}
 			}
 		}
-		logTime()
-		fmt.Printf("Send - %v\n", time.Since(t))
 
 		dataRecv := make([]byte, 0)
 		var width int32
 		var height int32
 		var matType int32
-		t = time.Now()
+
 		for {
 			img, err := stream.Recv()
 			if err == io.EOF {
@@ -563,28 +504,23 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 				break
 			}
 		}
-		logTime()
-		fmt.Printf("Recv - %v\n", time.Since(t))
 
 		frameTime := time.Since(t1)
 		logTime()
 		fmt.Printf("Frame latency - %v \n", frameTime)
-		upperThreshold, errs := time.ParseDuration("1s")
-		if errs != nil {
-			panic(err)
-		}
-		if frameTime > upperThreshold {
-			os.Exit(0)
-		}
+		// upperThreshold, errs := time.ParseDuration("1s")
+		// if errs != nil {
+		// 	panic(err)
+		// }
+		// if frameTime > upperThreshold {
+		// 	os.Exit(0)
+		// }
 		_, err := gocv.NewMatFromBytes(int(width), int(height), gocv.MatType(matType), dataRecv)
 		if err != nil {
 			log.Fatalf("Error converting bytes to matrix: %v", err)
 		}
 
 		key := taskIP + ":" + taskPort
-		t = time.Now()
-		logTime()
-		fmt.Printf("Lock 5\n")
 		ci.mutexServerUpdate.Lock()
 		if _, ok := ci.backupServers[taskIP+":"+taskPort]; ok {
 			// fmt.Printf(" Deleting task instance --- %v:%v\n", taskIP, taskPort)
@@ -594,8 +530,6 @@ func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
 			delete(ci.conns, key)
 		}
 		ci.mutexServerUpdate.Unlock()
-		logTime()
-		fmt.Printf("Lock 5 - %v\n", time.Since(t))
 		nImagesSent++
 	}
 }
