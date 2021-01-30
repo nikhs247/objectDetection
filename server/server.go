@@ -36,6 +36,7 @@ type TaskServer struct {
 	appInfo        ApplicationInfo
 	updateTime     time.Time
 	mutexUpTime    *sync.Mutex
+	mutexAlgo      *sync.Mutex
 }
 
 func logTime() {
@@ -197,11 +198,18 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecv
 		// convert image Mat to 300x300 blob that the object detector can analyze
 		blob := gocv.BlobFromImage(mat, ts.appInfo.ratio, image.Pt(300, 300), ts.appInfo.mean, ts.appInfo.swapRGB, false)
 
+		logTime()
+		fmt.Printf("Lock algo\n")
+		algoTime := time.Now()
+		ts.mutexAlgo.Lock()
 		// feed the blob into the detector
 		ts.appInfo.net.SetInput(blob, "")
 
 		// run a forward pass thru the network
 		prob := ts.appInfo.net.Forward("")
+		ts.mutexAlgo.Unlock()
+		logTime()
+		fmt.Printf("Lock algo - %v\n", time.Since(algoTime))
 
 		performDetection(&mat, prob)
 
@@ -311,6 +319,7 @@ func main() {
 		ListenPort:     listenPort,
 		mutexProcTime:  &sync.Mutex{},
 		mutexUpTime:    &sync.Mutex{},
+		mutexAlgo:      &sync.Mutex{},
 		processingTime: dur,
 		updateTime:     time.Time{},
 		appInfo:        ai,
