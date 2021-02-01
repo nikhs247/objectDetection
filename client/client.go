@@ -9,7 +9,6 @@ import (
 	"os"
 	"sort"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -23,333 +22,291 @@ import (
 const nMultiConn = 3
 
 type ClientInfo struct {
-	appManagerIP      string
-	appManagerPort    string
-	appManagerConn    *grpc.ClientConn
+	// Clinet info
+	id       string
+	tag      string // used to specify LAN resources
+	location *appcomm.Location
+	appId    *appcomm.UUID
+
+	// Application manager info
+	appManagerConn    *grpc.ClientConn // keep this pointer so that we can close it at the end
 	appManagerService appcomm.ApplicationManagerClient
-	serverIPs         [nMultiConn]string
-	serverPorts       [nMultiConn]string
-	backupServers     map[string]bool
-	lastFrameLoc      map[string]int
-	conns             map[string]*grpc.ClientConn
-	service           map[string]clientToTask.RpcClientToTaskClient
-	stream            map[string]clientToTask.RpcClientToTask_SendRecvImageClient
-	frameTimer        map[int]time.Time
-	mutexBestServer   *sync.Mutex
-	mutexTimer        *sync.Mutex
+
+	// Shared data structure
+	// Current selected server and 3 server slots
+	currentServer int // index of servers
+	servers       [nMultiConn]*ServerConnection
+
+	// Lock for shared data structure
 	mutexServerUpdate *sync.Mutex
-	taskIP            string
-	taskPort          string
-	newServer         bool
-	id                string
 }
 
-func logTime() {
-	fmt.Fprintf(os.Stderr, "[%s] ", time.Now().Format("2006-01-02 15:04:05"))
+// Information required for each server candidate
+type ServerConnection struct {
+	ip      string
+	port    string
+	conn    *grpc.ClientConn
+	service clientToTask.RpcClientToTaskClient
+	stream  clientToTask.RpcClientToTask_SendRecvImageClient
 }
 
 func Init(appMgrIP string, appMgrPort string) *ClientInfo {
-	var ci ClientInfo
-	ci.id = guuid.New().String()
-	ci.appManagerIP = appMgrIP
-	ci.appManagerPort = appMgrPort
-	ci.backupServers = make(map[string]bool, nMultiConn)
-	ci.conns = make(map[string]*grpc.ClientConn, nMultiConn)
-	ci.service = make(map[string]clientToTask.RpcClientToTaskClient, nMultiConn)
-	ci.stream = make(map[string]clientToTask.RpcClientToTask_SendRecvImageClient, nMultiConn)
-	ci.mutexBestServer = &sync.Mutex{}
-	ci.mutexServerUpdate = &sync.Mutex{}
-	ci.newServer = false
+	// (1) Set up client info
+	clientId := guuid.New().String()
+	lanResource := "Keller"
+	loc := &appcomm.Location{
+		Lat: 1.1,
+		Lon: 1.1,
+	}
+	whichApp := &appcomm.UUID{Value: strconv.Itoa(1)}
 
+	// (2) Build up connection to Application Manager
 	var opts []grpc.DialOption
 	opts = append(opts, grpc.WithInsecure())
-	conn, err := grpc.Dial(appMgrIP+":"+appMgrPort, opts...)
+	appConn, err := grpc.Dial(appMgrIP+":"+appMgrPort, opts...)
+	// TODO: appConn.Close() in main thread at the end
 	if err != nil {
-		log.Fatalf("fail to dial: %v", err)
+		log.Println("Fail to connect appManager at the beginning")
+		os.Exit(0)
 	}
-	ci.appManagerConn = conn
-	ci.appManagerService = appcomm.NewApplicationManagerClient(conn)
+	appService := appcomm.NewApplicationManagerClient(appConn)
 
-	return &ci
-}
-
-type Pair struct {
-	Key   string
-	Value time.Duration
-}
-
-type PairList []Pair
-
-func (p PairList) Len() int           { return len(p) }
-func (p PairList) Less(i, j int) bool { return p[i].Value < p[j].Value }
-func (p PairList) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
-
-func sortTaskInstances(perfTime map[string]time.Duration) PairList {
-	pl := make(PairList, len(perfTime))
-	i := 0
-	for k, v := range perfTime {
-		pl[i] = Pair{k, v}
-		i++
+	// (3) Get initial server list from Application Manager
+	list, err := appService.QueryTaskList(context.Background(), &appcomm.Query{
+		// TODO: add lanResource
+		ClientId:    &appcomm.UUID{Value: clientId},
+		GeoLocation: loc,
+		AppId:       whichApp,
+	})
+	if err != nil {
+		log.Println("Fail to query appManager at the beginning")
+		os.Exit(0)
 	}
-	sort.Sort(pl)
-	return pl
+	taskList := list.GetTaskList()
+
+	// (4) Build up connections to 3 initial servers
+	var servers [nMultiConn]*ServerConnection
+	for i := 0; i < nMultiConn; i++ {
+		serverIp := taskList[i].GetIp()
+		serverPort := taskList[i].GetPort()
+		serverConn, err := grpc.Dial(serverIp+":"+serverPort, grpc.WithInsecure())
+		if err != nil {
+			log.Fatalf("Connection to server failed: %v", err)
+		}
+		serverService := clientToTask.NewRpcClientToTaskClient(serverConn)
+		serverStream, err := serverService.SendRecvImage(context.Background())
+		if err != nil {
+			log.Fatalf("Build initial connections to 3 servers failed: %v", err)
+		}
+		servers[i] = &ServerConnection{
+			ip:      serverIp,
+			port:    serverPort,
+			conn:    serverConn,
+			service: serverService,
+			stream:  serverStream,
+		}
+	}
+
+	// (5) Construct the ClientInfo
+	ci := &ClientInfo{
+		// Client info
+		id:       clientId,
+		tag:      lanResource,
+		location: loc,
+		appId:    whichApp,
+		// Application Manager info
+		appManagerConn:    appConn,
+		appManagerService: appService,
+		// Shared data structure
+		currentServer: 0,
+		servers:       servers,
+		// Lock
+		mutexServerUpdate: &sync.Mutex{},
+	}
+	return ci
 }
 
 func (ci *ClientInfo) QueryListFromAppManager() {
-
-	// get the list of task instance IP:Port from application manager
+	/////////////////////////////////////////////////////// (1) Get taskList from Application Manager
 	list, err := ci.appManagerService.QueryTaskList(context.Background(), &appcomm.Query{
-		ClientId: &appcomm.UUID{Value: ci.id},
-		GeoLocation: &appcomm.Location{
-			Lat: 1.1,
-			Lon: 1.1,
-		},
-		AppId: &appcomm.UUID{Value: strconv.Itoa(1)},
+		// TODO: specify LAN resources
+		ClientId:    &appcomm.UUID{Value: ci.id},
+		GeoLocation: ci.location,
+		AppId:       ci.appId,
 	})
+	if err != nil {
+		log.Println("Application manager fails")
+		os.Exit(0)
+	}
+	taskList := list.GetTaskList()
+
+	/////////////////////////////////////////////////////// (2) Construct the list for perfromance test
+	// Lock 2
+	ci.mutexServerUpdate.Lock()
+	currentServer_tmp := ci.currentServer // this is unsafe because pointers points to shared memory: It's ok because we only read
+	servers_tmp := ci.servers
+	ci.mutexServerUpdate.Unlock()
+
+	testList := make([]*ServerConnection, 0)
+	garbageList := make([]*ServerConnection, 0)
+
+	// Add failed servers into garbage list
+	for i := 0; i < currentServer_tmp; i++ {
+		garbageList = append(garbageList, servers_tmp[i])
+	}
+	// Add current servers into test list
+	// Note that testList[0] will always be the currently using server in main thread
+	for i := currentServer_tmp; i < nMultiConn; i++ {
+		testList = append(testList, servers_tmp[i])
+	}
+	existingNumberOfServers := len(testList)
+
+	// Add new servers from query into test list
+Loop1:
+	for i := 0; i < nMultiConn; i++ {
+		serverIp := taskList[i].GetIp()
+		serverPort := taskList[i].GetPort()
+		// If new server is an existing server, then skip it
+		for j := 0; j < existingNumberOfServers; j++ {
+			if serverIp == testList[j].ip && serverPort == testList[j].port {
+				continue Loop1
+			}
+		}
+		// This is a new server different from the exsiting servers ==> create connection to it
+		serverConn, err := grpc.Dial(serverIp+":"+serverPort, grpc.WithInsecure())
+		if err != nil {
+			// This new server is already failed ==> do nothing about it
+			continue
+		}
+		serverService := clientToTask.NewRpcClientToTaskClient(serverConn)
+		serverStream, err := serverService.SendRecvImage(context.Background())
+		if err != nil {
+			// This new server is already failed ==> do nothing about it
+			serverConn.Close()
+			continue
+		}
+		newServer := &ServerConnection{
+			ip:      serverIp,
+			port:    serverPort,
+			conn:    serverConn,
+			service: serverService,
+			// stream will not be used by performance test, but we still create it here in case this server is chosen
+			stream: serverStream,
+		}
+		// Add the new server into test list
+		testList = append(testList, newServer)
+	}
+
+	/////////////////////////////////////////////////////// (3) Performance test for servers in test list
+	// Mark the currently using server: index in testList
+	indexOfCurrentServer := -1
+	var currentServerPerformance time.Duration
+	// List for sorting
+	sortList := make(PairList, 0)
+
+Loop2:
+	for i := 0; i < len(testList); i++ {
+		// Stores cumulative time for 3 performance test calls for each server
+		t1 := time.Now()
+		for j := 0; j < 3; j++ {
+			_, err := testList[i].service.TestPerformance(context.Background(), &clientToTask.TestPerf{
+				Check:    true,
+				ClientID: ci.id,
+			})
+			if err != nil {
+				// Server failed during test performance ==> remove this server from candidate list
+				// Note: this error rarely happens because all elements in test list are valid a couple of microseconds ago
+				garbageList = append(garbageList, testList[i])
+				testList[i] = nil
+				continue Loop2
+			}
+		}
+		t2 := time.Now()
+		// Add valid server into sort list for sorting
+		sortList = append(sortList, Pair{i, t2.Sub(t1)})
+		// DEBUG: fmt.Printf("Performance test for %s: %v \n", testList[i].ip, t2.Sub(t1))
+		// First non-nil server in testList is the currently using server
+		// Normal case, current server is just testList[0]. But in case the server faliure happens during performance test
+		if indexOfCurrentServer == -1 {
+			indexOfCurrentServer = i
+			currentServerPerformance = t2.Sub(t1)
+		}
+	}
+
+	// Check if the number of available servers are enough to support this user
+	if len(sortList) < 3 {
+		log.Println("Available servers are less than 3. Client aborts!")
+		os.Exit(0)
+	}
+	// Sort the available servers based on performance test
+	sort.Sort(sortList)
+
+	/////////////////////////////////////////////////////// (4) Construct the new server list for main thread
+
+	var newServers [nMultiConn]*ServerConnection
+	grace, err := time.ParseDuration("25ms")
 	if err != nil {
 		panic(err)
 	}
 
-	taskList := list.GetTaskList()
-	ips := [3]string{taskList[0].GetIp(), taskList[1].GetIp(), taskList[2].GetIp()}
-	ports := [3]string{taskList[0].GetPort(), taskList[1].GetPort(), taskList[2].GetPort()}
+	index := 0 // Index in sortList: for closing connection
+	connectionSwitch := false
 
-	// First time
-	if ci.serverIPs[0] == "" {
-		ci.serverIPs = ips
-		ci.serverPorts = ports
-		ci.taskIP = ips[0]
-		ci.taskPort = ports[0]
-		return
+	if sortList[0].Value+grace < currentServerPerformance {
+		// Connection switch is required ==> just use the first 3 servers in sort list
+		connectionSwitch = true
+		for i := 0; i < nMultiConn; i++ {
+			newServers[i] = testList[sortList[i].Index]
+		}
+		index = 3
+	} else {
+		// No connection switch is required ==> still use currentServer as the first one and fill the rest 2 slots with sortList
+		newServers[0] = testList[indexOfCurrentServer]
+		for i := 1; i < nMultiConn; i++ {
+			if sortList[index].Index == indexOfCurrentServer {
+				index++
+			}
+			newServers[i] = testList[sortList[index].Index]
+			index++
+		}
 	}
 
-	// backup current information about IP:Port and best IP:Port
+	// Add the rest connections in testing phase into garbage pool
+	for i := index; i < len(sortList); i++ {
+		// avoid to close the currently used server (senario: previously used server is slower no more than 15ms (no connection switch) but ranked at bottom in sortList)
+		if !connectionSwitch && sortList[i].Index == indexOfCurrentServer {
+			continue
+		}
+		garbageList = append(garbageList, testList[sortList[i].Index])
+	}
+
+	/////////////////////////////////////////////////////// (5) Update the server list in mainthread
+
+	// Lock 3
 	ci.mutexServerUpdate.Lock()
-	existingIPs := ci.serverIPs
-	existingPorts := ci.serverPorts
-	currBestIP := ci.taskIP
-	currBestPort := ci.taskPort
+	ci.servers = newServers
+	ci.currentServer = 0
 	ci.mutexServerUpdate.Unlock()
 
-	// combine current IP:Port set with the one retrieved from application manager
-	combinedIPs := make([]string, 0)
-	combinedPorts := make([]string, 0)
-	for i := 0; i < len(ips); i++ {
-		found := false
-		for j := 0; j < nMultiConn; j++ {
-			if ips[i] == existingIPs[j] && ports[i] == existingPorts[j] {
-				found = true
-				break
-			}
+	/////////////////////////////////////////////////////// (6) Clean up the garbage pool
+
+	// Close the unused file descriptors explicitely
+	// Apply a short delay before closing conns to avoid the following case (rarely happen):
+	// 		Close a currently using server in main thread before main thread enters the next critical section
+	// 		This will cause a false server failure and trigger fault tolerance mechanism in main thread
+	// This problem exists for both sequential send/recv and asynchronous send/recv. We can solve it by simply delaying conn termination
+	go func() {
+		time.Sleep(1 * time.Second)
+		for i := 0; i < len(garbageList); i++ {
+			garbageList[i].conn.Close()
+			// the rest will be cleaned by Garbage Collector
 		}
-		if !found {
-			combinedIPs = append(combinedIPs, ips[i])
-			combinedPorts = append(combinedPorts, ports[i])
-		}
-	}
-	combinedIPs = append(combinedIPs, existingIPs[:]...)
-	combinedPorts = append(combinedPorts, existingPorts[:]...)
-
-	// stores cumulative time taken by each task instance for 3 performance test calls
-	perfTime := make(map[string]time.Duration, nMultiConn)
-
-	// performance test calls
-Loop1:
-	for i := 0; i < len(combinedIPs); i++ {
-		key := combinedIPs[i] + ":" + combinedPorts[i]
-		available := false
-
-		var service clientToTask.RpcClientToTaskClient
-		// check if IP:Port is already available
-		ci.mutexServerUpdate.Lock()
-		if _, ok := ci.service[key]; ok {
-			available = true
-			service = ci.service[key]
-		}
-		ci.mutexServerUpdate.Unlock()
-
-		// if available, then directly call the test performance using stored service handle
-		if available {
-			start := time.Now()
-			for j := 0; j < 3; j++ {
-				_, err := service.TestPerformance(context.Background(),
-					&clientToTask.TestPerf{
-						Check:    true,
-						ClientID: ci.id,
-					})
-				if err != nil {
-					// To do -  Fault tolerance
-					// ci.mutexServerUpdate.Lock()
-					// delete(ci.service, key)
-					// delete(ci.stream, key)
-					// delete(ci.conns, key)
-					// ci.mutexServerUpdate.Unlock()
-					continue Loop1
-				}
-			}
-			perfTime[key] = time.Since(start)
-		} else {
-			// if not available, then create connection and service temporarily for performance test
-			conn, err := grpc.Dial(key, grpc.WithInsecure())
-			if err != nil {
-				log.Fatalf("Connection to server failed: %v", err)
-			}
-			service := clientToTask.NewRpcClientToTaskClient(conn)
-			start := time.Now()
-			for j := 0; j < 3; j++ {
-				_, err := service.TestPerformance(context.Background(),
-					&clientToTask.TestPerf{
-						Check:    true,
-						ClientID: ci.id,
-					})
-				if err != nil {
-					// To do - fault tolerance
-					continue Loop1
-				}
-			}
-			conn.Close()
-			perfTime[key] = time.Since(start)
-		}
-	}
-
-	// sorted list of <<IP:Port>, Duration>
-	sortedTaskTimeList := sortTaskInstances(perfTime)
-
-	// select the best nMultiConn set of IP:Port to connect to
-	selectedTaskIter := 0
-
-	// variables to store new IP:Port
-	var ipNew [3]string
-	var portNew [3]string
-
-	// to check if there is a best server change
-	newserver := false
-
-	// new connection, services, streams and backupservers
-	conns := make(map[string]*grpc.ClientConn, nMultiConn)
-	services := make(map[string]clientToTask.RpcClientToTaskClient, nMultiConn)
-	streams := make(map[string]clientToTask.RpcClientToTask_SendRecvImageClient, nMultiConn)
-	backupServers := make(map[string]bool, nMultiConn)
-
-	// check if the IP:Port in tasklists are available
-	availability := make([]bool, 6)
-	for i := 0; i < len(sortedTaskTimeList); i++ {
-		available := false
-		key := sortedTaskTimeList[i].Key
-		ci.mutexServerUpdate.Lock()
-		if _, ok := ci.service[key]; ok {
-			available = true
-		}
-		ci.mutexServerUpdate.Unlock()
-		availability[i] = available
-	}
-
-Loop2:
-	for i := 0; i < len(sortedTaskTimeList); i++ {
-		available := availability[i]
-
-		// key = IP:Port
-		key := sortedTaskTimeList[i].Key
-		splitIpPort := strings.Split(key, ":")
-
-		// grace period
-		grace, err := time.ParseDuration("15ms")
-		if err != nil {
-			panic(err)
-		}
-
-		// if the IP:Port is not connected and selected task instances < nMultiConn, create connection, service and stream
-		if !available && selectedTaskIter < nMultiConn {
-			conn, err := grpc.Dial(key, grpc.WithInsecure())
-			if err != nil {
-				log.Fatalf("Connection to server failed: %v", err)
-			}
-			service := clientToTask.NewRpcClientToTaskClient(conn)
-			stream, err := ci.service[key].SendRecvImage(context.Background())
-			if err != nil {
-				// To do  - fault tolerance
-				log.Fatalf("Client stub creation failed: %v", err)
-			}
-			conns[key] = conn
-			services[key] = service
-			streams[key] = stream
-		}
-
-		// if (!available && selectedTaskIter < nMultiConn) ||
-		// 	(available && selectedTaskIter < nMultiConn) {
-
-		if selectedTaskIter < nMultiConn {
-
-			if selectedTaskIter == 0 {
-				// check if the existing best task is present in the sortedTaskTimeList
-				for k := 0; k < len(sortedTaskTimeList); k++ {
-					if sortedTaskTimeList[k].Key == currBestIP+":"+currBestPort {
-						// check if k=0 or k's time < new task time + 15 ms grace
-						if k == 0 {
-							selectedTaskIter++
-						} else if sortedTaskTimeList[k].Value < (grace + sortedTaskTimeList[0].Value) {
-							// maintain the status of current task and add the new task
-							// as second best
-							selectedTaskIter++
-							ipNew[selectedTaskIter] = splitIpPort[0]
-							portNew[selectedTaskIter] = splitIpPort[1]
-
-							selectedTaskIter++
-						} else {
-							// else add the new task as best
-							ipNew[selectedTaskIter] = splitIpPort[0]
-							portNew[selectedTaskIter] = splitIpPort[1]
-							newserver = true
-							currBestIP = splitIpPort[0]
-							currBestPort = splitIpPort[1]
-							selectedTaskIter++
-						}
-						break
-					}
-				}
-			} else {
-				// set the IP:Port to selectTaskIter location
-				if splitIpPort[0] == currBestIP && splitIpPort[1] == currBestPort {
-					continue Loop2
-				}
-				ipNew[selectedTaskIter] = splitIpPort[0]
-				portNew[selectedTaskIter] = splitIpPort[1]
-
-				selectedTaskIter++
-			}
-		} else if available && selectedTaskIter >= nMultiConn {
-			if splitIpPort[0] == currBestIP && splitIpPort[1] == currBestPort {
-				continue Loop2
-			}
-			backupServers[key] = true
-		}
-	}
-
-	ci.mutexServerUpdate.Lock()
-	ci.serverIPs = ipNew
-	ci.serverPorts = portNew
-	ci.taskIP = currBestIP
-	ci.taskPort = currBestPort
-	ci.newServer = newserver
-	for k, v := range conns {
-		ci.conns[k] = v
-	}
-	for k, v := range services {
-		ci.service[k] = v
-	}
-	for k, v := range streams {
-		ci.stream[k] = v
-	}
-	for k, v := range backupServers {
-		ci.backupServers[k] = v
-	}
-	ci.mutexServerUpdate.Unlock()
+	}()
 }
 
-func (ci *ClientInfo) PeriodicFuncCalls(wg *sync.WaitGroup) {
-	defer wg.Done()
+func (ci *ClientInfo) PeriodicFuncCalls() {
 	queryListTicker := time.NewTicker(5 * time.Second)
-
+	// the period of periodic query is [5 - 7] seconds
 	for {
 		select {
 		case <-queryListTicker.C:
@@ -359,6 +316,170 @@ func (ci *ClientInfo) PeriodicFuncCalls(wg *sync.WaitGroup) {
 		}
 	}
 }
+
+func (ci *ClientInfo) faultTolerance() {
+	ci.mutexServerUpdate.Lock()
+	ci.currentServer++
+	if ci.currentServer >= 3 {
+		log.Println("All 3 servers failed: no available servers and abort")
+		// Note: This will rarely happen if we add more duplicated connections
+		// Now for simplicity, we assume all 3 servers will not fail at the same time
+		os.Exit(0)
+	}
+	ci.mutexServerUpdate.Unlock()
+	log.Println("Server just failed: switch to a backup server!!")
+}
+
+func (ci *ClientInfo) StartStreaming() {
+
+	// Set up video source [camera or video file]
+	videoPath := "data/video/vid.avi"
+	video, err := gocv.VideoCaptureFile(videoPath)
+	if err != nil {
+		log.Printf("Error opening video capture file: %s\n", videoPath)
+		return
+	}
+	defer video.Close()
+	img := gocv.NewMat()
+	defer img.Close()
+
+	// Main loop for client: send frames out to server and get results
+	// Server may fail: there are 3 Send() and 1 Recv() functions could lead to error during data transfer
+	// Call faultTolerance() to handle connection switch
+
+	// stream is the local variable for currently selected server
+	var stream clientToTask.RpcClientToTask_SendRecvImageClient
+Loop:
+	for {
+		// (1) Capture the frame at this iteration to be sent
+		if ok := video.Read(&img); !ok {
+			fmt.Printf("Video closed: %v\n", videoPath)
+			break
+		}
+		if img.Empty() {
+			continue
+		}
+		dims := img.Size()
+		dataSend := img.ToBytes()
+		mattype := int32(img.Type())
+
+		// (2) Get the server for processing this frame
+		// Lock 1
+		ci.mutexServerUpdate.Lock()
+		stream = ci.servers[ci.currentServer].stream
+		ci.mutexServerUpdate.Unlock()
+
+		// (3) Send the frame
+		chunks := split(dataSend, 4096)
+		nChunks := len(chunks)
+		// Timer for frame latency
+		t1 := time.Now()
+		for i := 0; i < nChunks; i++ {
+			// Send the header of this frame
+			if i == 0 {
+				err = stream.Send(&clientToTask.ImageData{
+					Start:    1, // header
+					Width:    int32(dims[0]),
+					Height:   int32(dims[1]),
+					MatType:  mattype,
+					Image:    chunks[i],
+					ClientID: ci.id,
+				})
+				if err != nil {
+					ci.faultTolerance()
+					continue Loop
+				}
+				// Send the last chunk
+			} else if i == nChunks-1 {
+				err = stream.Send(&clientToTask.ImageData{
+					Start:    0,
+					Image:    chunks[i],
+					ClientID: ci.id,
+				})
+				if err != nil {
+					ci.faultTolerance()
+					continue Loop
+				}
+				// Send the regular chunk
+			} else {
+				err = stream.Send(&clientToTask.ImageData{
+					Start:    -1, // regular chunck
+					Image:    chunks[i],
+					ClientID: ci.id,
+				})
+				if err != nil {
+					ci.faultTolerance()
+					continue Loop
+				}
+			}
+		}
+
+		// (4) Receive the result
+		dataRecv := make([]byte, 0)
+		var width int32
+		var height int32
+		var matType int32
+		for {
+			img, err := stream.Recv()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				// Server fails
+				ci.faultTolerance()
+				continue Loop
+			}
+
+			if img.GetStart() == 1 {
+				width = img.GetWidth()
+				height = img.GetHeight()
+				matType = img.GetMatType()
+			}
+			chunk := img.GetImage()
+			dataRecv = append(dataRecv, chunk...)
+			if img.GetStart() == 0 {
+				break
+			}
+		}
+		t2 := time.Now()
+
+		logTime()
+		fmt.Printf("Frame latency - %v \n", t2.Sub(t1))
+
+		_, err := gocv.NewMatFromBytes(int(width), int(height), gocv.MatType(matType), dataRecv)
+		if err != nil {
+			log.Fatalf("Error converting bytes to matrix: %v", err)
+		}
+	}
+}
+
+func main() {
+	appMgrIP := os.Args[1]
+	appMgrPort := os.Args[2]
+
+	ci := Init(appMgrIP, appMgrPort)
+
+	// Periodic query
+	go ci.PeriodicFuncCalls()
+
+	// Main thread
+	ci.StartStreaming()
+
+	log.Println("Processing done!")
+}
+
+////////////////////////////////////////////////// Helper /////////////////////////////////////////////////////
+
+type Pair struct {
+	Index int
+	Value time.Duration
+}
+
+type PairList []Pair
+
+func (p PairList) Len() int           { return len(p) }
+func (p PairList) Less(i, j int) bool { return p[i].Value < p[j].Value }
+func (p PairList) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
 func split(buf []byte, lim int) [][]byte {
 	var chunk []byte
@@ -373,180 +494,6 @@ func split(buf []byte, lim int) [][]byte {
 	return chunks
 }
 
-func (ci *ClientInfo) StartStreaming(wg *sync.WaitGroup) {
-	defer wg.Done()
-
-	taskIP := ci.serverIPs[0]
-	taskPort := ci.serverPorts[0]
-
-	// create connection to all nMultConn servers
-	for i := 0; i < nMultiConn; i++ {
-		key := ci.serverIPs[i] + ":" + ci.serverPorts[i]
-		conn, err := grpc.Dial(key, grpc.WithInsecure())
-		if err != nil {
-			log.Fatalf("Connection to server failed: %v", err)
-		}
-		ci.conns[key] = conn
-
-		ci.service[key] = clientToTask.NewRpcClientToTaskClient(conn)
-
-		stream, err := ci.service[key].SendRecvImage(context.Background())
-		if err != nil {
-			log.Fatalf("Client stub creation failed: %v", err)
-		}
-		ci.stream[key] = stream
-	}
-
-	// open video to capture
-	videoPath := "data/video/vid.avi"
-	video, err := gocv.VideoCaptureFile(videoPath)
-	if err != nil {
-		fmt.Printf("Error opening video capture file: %s\n", videoPath)
-		return
-	}
-	defer video.Close()
-
-	img := gocv.NewMat()
-	defer img.Close()
-
-	nImagesSent := 0
-	var stream clientToTask.RpcClientToTask_SendRecvImageClient
-	ci.mutexServerUpdate.Lock()
-	ci.newServer = false
-	stream = ci.stream[ci.taskIP+":"+ci.taskPort]
-	ci.mutexServerUpdate.Unlock()
-	for {
-
-		if ok := video.Read(&img); !ok {
-			fmt.Printf("Video closed: %v\n", videoPath)
-			break
-		}
-		if img.Empty() {
-			continue
-		}
-
-		dims := img.Size()
-		dataSend := img.ToBytes()
-		mattype := int32(img.Type())
-
-		ci.mutexServerUpdate.Lock()
-		if ci.newServer {
-			taskIP = ci.taskIP
-			taskPort = ci.taskPort
-			ci.newServer = false
-			stream = ci.stream[taskIP+":"+taskPort]
-		}
-		ci.mutexServerUpdate.Unlock()
-
-		chunks := split(dataSend, 4096)
-		nChunks := len(chunks)
-
-		t1 := time.Now()
-
-		for i := 0; i < nChunks; i++ {
-			if i == 0 {
-				err = stream.Send(&clientToTask.ImageData{
-					Width:    int32(dims[0]),
-					Height:   int32(dims[1]),
-					MatType:  mattype,
-					Image:    chunks[i],
-					Start:    1,
-					ClientID: ci.id,
-				})
-
-				if err != nil {
-					log.Fatalf("Error sending image frame: %v", err)
-				}
-			} else if i == nChunks-1 {
-				err = stream.Send(&clientToTask.ImageData{
-					Start:    0,
-					Image:    chunks[i],
-					ClientID: ci.id,
-				})
-
-				if err != nil {
-					log.Fatalf("Error sending image frame: %v", err)
-				}
-
-			} else {
-				err = stream.Send(&clientToTask.ImageData{
-					Start:    -1,
-					Image:    chunks[i],
-					ClientID: ci.id,
-				})
-
-				if err != nil {
-					log.Fatalf("Error sending image frame: %v", err)
-				}
-			}
-		}
-
-		dataRecv := make([]byte, 0)
-		var width int32
-		var height int32
-		var matType int32
-
-		for {
-			img, err := stream.Recv()
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				log.Fatalf("Image receive from app failed: %v", err)
-			}
-
-			if img.GetStart() == 1 {
-				width = img.GetWidth()
-				height = img.GetHeight()
-				matType = img.GetMatType()
-			}
-
-			chunk := img.GetImage()
-			dataRecv = append(dataRecv, chunk...)
-			if img.GetStart() == 0 {
-				break
-			}
-		}
-
-		frameTime := time.Since(t1)
-		logTime()
-		fmt.Printf("Frame latency - %v \n", frameTime)
-		// upperThreshold, errs := time.ParseDuration("1s")
-		// if errs != nil {
-		// 	panic(err)
-		// }
-		// if frameTime > upperThreshold {
-		// 	os.Exit(0)
-		// }
-		_, err := gocv.NewMatFromBytes(int(width), int(height), gocv.MatType(matType), dataRecv)
-		if err != nil {
-			log.Fatalf("Error converting bytes to matrix: %v", err)
-		}
-
-		key := taskIP + ":" + taskPort
-		ci.mutexServerUpdate.Lock()
-		if _, ok := ci.backupServers[taskIP+":"+taskPort]; ok {
-			// fmt.Printf(" Deleting task instance --- %v:%v\n", taskIP, taskPort)
-			ci.conns[key].Close()
-			delete(ci.service, key)
-			delete(ci.stream, key)
-			delete(ci.conns, key)
-		}
-		ci.mutexServerUpdate.Unlock()
-		nImagesSent++
-	}
-}
-
-func main() {
-	appMgrIP := os.Args[1]
-	appMgrPort := os.Args[2]
-
-	ci := Init(appMgrIP, appMgrPort)
-	ci.QueryListFromAppManager()
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go ci.StartStreaming(&wg)
-	wg.Add(1)
-	go ci.PeriodicFuncCalls(&wg)
-	wg.Wait()
+func logTime() {
+	fmt.Fprintf(os.Stderr, "[%s] ", time.Now().Format("2006-01-02 15:04:05"))
 }

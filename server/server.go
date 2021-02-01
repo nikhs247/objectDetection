@@ -162,7 +162,8 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecv
 				return nil
 			}
 			if err != nil {
-				log.Fatalf("Image receive from app failed: %v", err)
+				log.Printf("Connection closed by client")
+				return nil
 			}
 			// fmt.Println("Received chunk")
 
@@ -231,7 +232,8 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecv
 				})
 
 				if err != nil {
-					log.Fatalf("Error sending image frame: %v", err)
+					log.Printf("Connection closed by client")
+					return nil
 				}
 			} else if i == nChunks-1 {
 				err = stream.Send(&clientToTask.ImageData{
@@ -240,7 +242,8 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecv
 				})
 
 				if err != nil {
-					log.Fatalf("Error sending image frame: %v", err)
+					log.Printf("Connection closed by client")
+					return nil
 				}
 
 			} else {
@@ -250,7 +253,8 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecv
 				})
 
 				if err != nil {
-					log.Fatalf("Error sending image frame: %v", err)
+					log.Printf("Connection closed by client")
+					return nil
 				}
 			}
 		}
