@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package appcomm;
 
-option go_package = "github.com/nikhs247/objectDetection/comms/rpc/appcomm";
+option go_package = "github.com/armadanet/appManager/appcomm";
 
 service ApplicationManager {
     rpc SubmitApplication (Application) returns (stream AppStatus);
@@ -42,6 +42,7 @@ message TaskSpec {
     int64 NumReplicas = 6;
     CargoReq CargoSpec = 7;
     Location DataSources = 8;
+    repeated string Tags = 9;
 }
 message ResourceRequirement {
     int64 Requested = 1;
@@ -66,7 +67,8 @@ message AppStatus {
 message Query {
   UUID clientId = 1;
   Location geoLocation = 2;
-  UUID appId = 3;
+  repeated string tag = 3;
+  UUID appId = 4;
 }
 
 message TaskList {

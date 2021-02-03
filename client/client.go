@@ -76,6 +76,7 @@ func Init(appMgrIP string, appMgrPort string) *ClientInfo {
 		// TODO: add lanResource
 		ClientId:    &appcomm.UUID{Value: clientId},
 		GeoLocation: loc,
+		Tag:         []string{},
 		AppId:       whichApp,
 	})
 	if err != nil {
@@ -132,6 +133,7 @@ func (ci *ClientInfo) QueryListFromAppManager() {
 		// TODO: specify LAN resources
 		ClientId:    &appcomm.UUID{Value: ci.id},
 		GeoLocation: ci.location,
+		Tag:         []string{},
 		AppId:       ci.appId,
 	})
 	if err != nil {
