@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"math/rand"
 	"os"
 	"sort"
@@ -18,6 +19,118 @@ import (
 	"gocv.io/x/gocv"
 	"google.golang.org/grpc"
 )
+
+func generateAmulatedData(clientNumber string) map[string]AmulatedNetwork {
+	result := make(map[string]AmulatedNetwork)
+	// *Set up simulated data
+	if clientNumber == "client1" {
+		result["a"] = AmulatedNetwork{
+			latency:   "3ms",
+			bandwidth: 30,
+		}
+		result["a"] = AmulatedNetwork{
+			latency:   "20ms",
+			bandwidth: 30,
+		}
+		result["a"] = AmulatedNetwork{
+			latency:   "45ms",
+			bandwidth: 30,
+		}
+		result["a"] = AmulatedNetwork{
+			latency:   "50ms",
+			bandwidth: 30,
+		}
+		result["a"] = AmulatedNetwork{
+			latency:   "28ms",
+			bandwidth: 30,
+		}
+		result["a"] = AmulatedNetwork{
+			latency:   "32ms",
+			bandwidth: 30,
+		}
+	} else if clientNumber == "client2" {
+		result["a"] = AmulatedNetwork{
+			latency:   "48ms",
+			bandwidth: 15,
+		}
+		result["a"] = AmulatedNetwork{
+			latency:   "42ms",
+			bandwidth: 15,
+		}
+		result["a"] = AmulatedNetwork{
+			latency:   "3ms",
+			bandwidth: 450,
+		}
+		result["a"] = AmulatedNetwork{
+			latency:   "22ms",
+			bandwidth: 15,
+		}
+		result["a"] = AmulatedNetwork{
+			latency:   "45ms",
+			bandwidth: 15,
+		}
+		result["a"] = AmulatedNetwork{
+			latency:   "41ms",
+			bandwidth: 15,
+		}
+	} else if clientNumber == "client3" {
+		result["a"] = AmulatedNetwork{
+			latency:   "25ms",
+			bandwidth: 22,
+		}
+		result["a"] = AmulatedNetwork{
+			latency:   "27ms",
+			bandwidth: 22,
+		}
+		result["a"] = AmulatedNetwork{
+			latency:   "40ms",
+			bandwidth: 22,
+		}
+		result["a"] = AmulatedNetwork{
+			latency:   "35ms",
+			bandwidth: 22,
+		}
+		result["a"] = AmulatedNetwork{
+			latency:   "10ms",
+			bandwidth: 22,
+		}
+		result["a"] = AmulatedNetwork{
+			latency:   "23ms",
+			bandwidth: 22,
+		}
+	} else {
+		log.Println("client number input invalid")
+		os.Exit(0)
+	}
+	return result
+}
+
+type AmulatedNetwork struct {
+	// latency in ms
+	latency string
+	// latency in Mbps
+	bandwidth int
+}
+
+func (ci *ClientInfo) applyDelay(ip string) {
+	ci.mutexNetwork.Lock()
+	// get RTT latency
+	latency, err := time.ParseDuration(ci.amulatedNetwork[ip].latency)
+	if err != nil {
+		log.Fatalf("Parse time failed: %v", err)
+	}
+	bandwidth := ci.amulatedNetwork[ip].bandwidth
+	ci.mutexNetwork.Unlock()
+
+	// calculate the data transfer
+	transfer := time.Duration((math.Round(0.22 / (float64(bandwidth) / 8.0) * 1000))) * time.Millisecond
+
+	// TODO: add randomness
+
+	log.Printf("Apply delay to server: [%s] latency: [%v] data transfer [%v]", ip, latency, bandwidth)
+
+	time.Sleep(latency + transfer)
+}
 
 const nMultiConn = 3
 
@@ -39,6 +152,10 @@ type ClientInfo struct {
 
 	// Lock for shared data structure
 	mutexServerUpdate *sync.Mutex
+
+	// Amulated data
+	amulatedNetwork map[string]AmulatedNetwork
+	mutexNetwork    *sync.Mutex
 }
 
 // Information required for each server candidate
@@ -50,7 +167,10 @@ type ServerConnection struct {
 	stream  clientToTask.RpcClientToTask_SendRecvImageClient
 }
 
-func Init(appMgrIP string, appMgrPort string) *ClientInfo {
+func Init(appMgrIP string, appMgrPort string, clientNumber string) *ClientInfo {
+	amulatedNetwork := generateAmulatedData(clientNumber)
+	log.Println(amulatedNetwork)
+
 	// (1) Set up client info
 	clientId := guuid.New().String()
 	lanResource := "Keller"
@@ -123,6 +243,9 @@ func Init(appMgrIP string, appMgrPort string) *ClientInfo {
 		servers:       servers,
 		// Lock
 		mutexServerUpdate: &sync.Mutex{},
+		// Simulated data
+		amulatedNetwork: amulatedNetwork,
+		mutexNetwork:    &sync.Mutex{},
 	}
 	return ci
 }
@@ -222,6 +345,9 @@ Loop2:
 				testList[i] = nil
 				continue Loop2
 			}
+
+			//////////// Add simulated delay ////////////
+			ci.applyDelay(testList[i].ip)
 		}
 		t2 := time.Now()
 		// Add valid server into sort list for sorting
@@ -368,6 +494,7 @@ Loop:
 		// (2) Get the server for processing this frame
 		// Lock 1
 		ci.mutexServerUpdate.Lock()
+		whichIp := ci.servers[ci.currentServer].ip // this is used for emulated data
 		stream = ci.servers[ci.currentServer].stream
 		ci.mutexServerUpdate.Unlock()
 
@@ -443,6 +570,10 @@ Loop:
 				break
 			}
 		}
+
+		//////////// Add simulated delay ////////////
+		ci.applyDelay(whichIp)
+
 		t2 := time.Now()
 
 		logTime()
@@ -458,8 +589,9 @@ Loop:
 func main() {
 	appMgrIP := os.Args[1]
 	appMgrPort := os.Args[2]
+	clientNumber := os.Args[3]
 
-	ci := Init(appMgrIP, appMgrPort)
+	ci := Init(appMgrIP, appMgrPort, clientNumber)
 
 	// Periodic query
 	go ci.PeriodicFuncCalls()
