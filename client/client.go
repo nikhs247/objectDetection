@@ -24,77 +24,77 @@ func generateAmulatedData(clientNumber string) map[string]AmulatedNetwork {
 	result := make(map[string]AmulatedNetwork)
 	// *Set up simulated data
 	if clientNumber == "client1" {
-		result["a"] = AmulatedNetwork{
+		result["34.204.1.56"] = AmulatedNetwork{
 			latency:   "3ms",
-			bandwidth: 30,
+			bandwidth: 100,
 		}
-		result["a"] = AmulatedNetwork{
+		result["54.88.30.130"] = AmulatedNetwork{
 			latency:   "20ms",
 			bandwidth: 30,
 		}
-		result["a"] = AmulatedNetwork{
+		result["18.206.35.37"] = AmulatedNetwork{
 			latency:   "45ms",
 			bandwidth: 30,
 		}
-		result["a"] = AmulatedNetwork{
+		result["54.225.9.145"] = AmulatedNetwork{
 			latency:   "50ms",
 			bandwidth: 30,
 		}
-		result["a"] = AmulatedNetwork{
+		result["3.86.232.178"] = AmulatedNetwork{
 			latency:   "28ms",
 			bandwidth: 30,
 		}
-		result["a"] = AmulatedNetwork{
+		result["54.90.87.170"] = AmulatedNetwork{
 			latency:   "32ms",
 			bandwidth: 30,
 		}
 	} else if clientNumber == "client2" {
-		result["a"] = AmulatedNetwork{
+		result["34.204.1.56"] = AmulatedNetwork{
 			latency:   "48ms",
 			bandwidth: 15,
 		}
-		result["a"] = AmulatedNetwork{
+		result["54.88.30.130"] = AmulatedNetwork{
 			latency:   "42ms",
 			bandwidth: 15,
 		}
-		result["a"] = AmulatedNetwork{
+		result["18.206.35.37"] = AmulatedNetwork{
 			latency:   "3ms",
 			bandwidth: 450,
 		}
-		result["a"] = AmulatedNetwork{
+		result["54.225.9.145"] = AmulatedNetwork{
 			latency:   "22ms",
 			bandwidth: 15,
 		}
-		result["a"] = AmulatedNetwork{
+		result["3.86.232.178"] = AmulatedNetwork{
 			latency:   "45ms",
 			bandwidth: 15,
 		}
-		result["a"] = AmulatedNetwork{
+		result["54.90.87.170"] = AmulatedNetwork{
 			latency:   "41ms",
 			bandwidth: 15,
 		}
 	} else if clientNumber == "client3" {
-		result["a"] = AmulatedNetwork{
+		result["34.204.1.56"] = AmulatedNetwork{
 			latency:   "25ms",
 			bandwidth: 22,
 		}
-		result["a"] = AmulatedNetwork{
+		result["54.88.30.130"] = AmulatedNetwork{
 			latency:   "27ms",
 			bandwidth: 22,
 		}
-		result["a"] = AmulatedNetwork{
-			latency:   "40ms",
+		result["18.206.35.37"] = AmulatedNetwork{
+			latency:   "30ms",
 			bandwidth: 22,
 		}
-		result["a"] = AmulatedNetwork{
+		result["54.225.9.145"] = AmulatedNetwork{
 			latency:   "35ms",
 			bandwidth: 22,
 		}
-		result["a"] = AmulatedNetwork{
+		result["3.86.232.178"] = AmulatedNetwork{
 			latency:   "10ms",
 			bandwidth: 22,
 		}
-		result["a"] = AmulatedNetwork{
+		result["54.90.87.170"] = AmulatedNetwork{
 			latency:   "23ms",
 			bandwidth: 22,
 		}
@@ -127,7 +127,7 @@ func (ci *ClientInfo) applyDelay(ip string) {
 
 	// TODO: add randomness
 
-	log.Printf("Apply delay to server: [%s] latency: [%v] data transfer [%v]", ip, latency, bandwidth)
+	log.Printf("Apply delay to server: [%s] latency: [%v]ms data transfer [%v]Mbps", ip, latency, bandwidth)
 
 	time.Sleep(latency + transfer)
 }
@@ -576,8 +576,7 @@ Loop:
 
 		t2 := time.Now()
 
-		logTime()
-		fmt.Printf("Frame latency - %v \n", t2.Sub(t1))
+		log.Printf("Frame latency - %v \n", t2.Sub(t1))
 
 		_, err := gocv.NewMatFromBytes(int(width), int(height), gocv.MatType(matType), dataRecv)
 		if err != nil {
@@ -626,8 +625,4 @@ func split(buf []byte, lim int) [][]byte {
 		chunks = append(chunks, buf[:])
 	}
 	return chunks
-}
-
-func logTime() {
-	fmt.Fprintf(os.Stderr, "[%s] ", time.Now().Format("2006-01-02 15:04:05"))
 }
