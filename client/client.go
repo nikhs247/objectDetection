@@ -20,81 +20,81 @@ import (
 	"google.golang.org/grpc"
 )
 
-func generateAmulatedData(clientNumber string) map[string]AmulatedNetwork {
-	result := make(map[string]AmulatedNetwork)
+func generateEmulatedData(clientNumber string) map[string]EmulatedNetwork {
+	result := make(map[string]EmulatedNetwork)
 	// *Set up simulated data
 	if clientNumber == "client1" {
-		result["34.204.1.56"] = AmulatedNetwork{
+		result["34.204.1.56"] = EmulatedNetwork{
 			latency:   "3ms",
 			bandwidth: 100,
 		}
-		result["54.88.30.130"] = AmulatedNetwork{
+		result["54.88.30.130"] = EmulatedNetwork{
 			latency:   "20ms",
 			bandwidth: 30,
 		}
-		result["18.206.35.37"] = AmulatedNetwork{
+		result["18.206.35.37"] = EmulatedNetwork{
 			latency:   "45ms",
 			bandwidth: 30,
 		}
-		result["54.225.9.145"] = AmulatedNetwork{
+		result["54.225.9.145"] = EmulatedNetwork{
 			latency:   "50ms",
 			bandwidth: 30,
 		}
-		result["3.86.232.178"] = AmulatedNetwork{
+		result["3.86.232.178"] = EmulatedNetwork{
 			latency:   "28ms",
 			bandwidth: 30,
 		}
-		result["54.90.87.170"] = AmulatedNetwork{
+		result["54.90.87.170"] = EmulatedNetwork{
 			latency:   "32ms",
 			bandwidth: 30,
 		}
 	} else if clientNumber == "client2" {
-		result["34.204.1.56"] = AmulatedNetwork{
+		result["34.204.1.56"] = EmulatedNetwork{
 			latency:   "48ms",
 			bandwidth: 15,
 		}
-		result["54.88.30.130"] = AmulatedNetwork{
+		result["54.88.30.130"] = EmulatedNetwork{
 			latency:   "42ms",
 			bandwidth: 15,
 		}
-		result["18.206.35.37"] = AmulatedNetwork{
+		result["18.206.35.37"] = EmulatedNetwork{
 			latency:   "3ms",
 			bandwidth: 450,
 		}
-		result["54.225.9.145"] = AmulatedNetwork{
+		result["54.225.9.145"] = EmulatedNetwork{
 			latency:   "22ms",
 			bandwidth: 15,
 		}
-		result["3.86.232.178"] = AmulatedNetwork{
+		result["3.86.232.178"] = EmulatedNetwork{
 			latency:   "45ms",
 			bandwidth: 15,
 		}
-		result["54.90.87.170"] = AmulatedNetwork{
+		result["54.90.87.170"] = EmulatedNetwork{
 			latency:   "41ms",
 			bandwidth: 15,
 		}
 	} else if clientNumber == "client3" {
-		result["34.204.1.56"] = AmulatedNetwork{
+		result["34.204.1.56"] = EmulatedNetwork{
 			latency:   "25ms",
 			bandwidth: 22,
 		}
-		result["54.88.30.130"] = AmulatedNetwork{
+		result["54.88.30.130"] = EmulatedNetwork{
 			latency:   "27ms",
 			bandwidth: 22,
 		}
-		result["18.206.35.37"] = AmulatedNetwork{
+		result["18.206.35.37"] = EmulatedNetwork{
 			latency:   "30ms",
 			bandwidth: 22,
 		}
-		result["54.225.9.145"] = AmulatedNetwork{
+		result["54.225.9.145"] = EmulatedNetwork{
 			latency:   "35ms",
 			bandwidth: 22,
 		}
-		result["3.86.232.178"] = AmulatedNetwork{
+		result["3.86.232.178"] = EmulatedNetwork{
 			latency:   "10ms",
 			bandwidth: 22,
 		}
-		result["54.90.87.170"] = AmulatedNetwork{
+		result["54.90.87.170"] = EmulatedNetwork{
 			latency:   "23ms",
 			bandwidth: 22,
 		}
@@ -105,7 +105,7 @@ func generateAmulatedData(clientNumber string) map[string]AmulatedNetwork {
 	return result
 }
 
-type AmulatedNetwork struct {
+type EmulatedNetwork struct {
 	// latency in ms
 	latency string
 	// latency in Mbps
@@ -115,11 +115,11 @@ type AmulatedNetwork struct {
 func (ci *ClientInfo) applyDelay(ip string) {
 	ci.mutexNetwork.Lock()
 	// get RTT latency
-	latency, err := time.ParseDuration(ci.amulatedNetwork[ip].latency)
+	latency, err := time.ParseDuration(ci.EmulatedNetwork[ip].latency)
 	if err != nil {
 		log.Fatalf("Parse time failed: %v", err)
 	}
-	bandwidth := ci.amulatedNetwork[ip].bandwidth
+	bandwidth := ci.EmulatedNetwork[ip].bandwidth
 	ci.mutexNetwork.Unlock()
 
 	// calculate the data transfer
@@ -127,7 +127,7 @@ func (ci *ClientInfo) applyDelay(ip string) {
 
 	// TODO: add randomness
 
-	log.Printf("Apply delay to server: [%s] latency: [%v]ms data transfer [%v]Mbps", ip, latency, bandwidth)
+	// log.Printf("Apply delay to server: [%s] latency: [%v]ms data transfer [%v]Mbps", ip, latency, bandwidth)
 
 	time.Sleep(latency + transfer)
 }
@@ -153,8 +153,8 @@ type ClientInfo struct {
 	// Lock for shared data structure
 	mutexServerUpdate *sync.Mutex
 
-	// Amulated data
-	amulatedNetwork map[string]AmulatedNetwork
+	// Emulated data
+	EmulatedNetwork map[string]EmulatedNetwork
 	mutexNetwork    *sync.Mutex
 }
 
@@ -168,8 +168,8 @@ type ServerConnection struct {
 }
 
 func Init(appMgrIP string, appMgrPort string, clientNumber string) *ClientInfo {
-	amulatedNetwork := generateAmulatedData(clientNumber)
-	log.Println(amulatedNetwork)
+	EmulatedNetwork := generateEmulatedData(clientNumber)
+	log.Println(EmulatedNetwork)
 
 	// (1) Set up client info
 	clientId := guuid.New().String()
@@ -244,7 +244,7 @@ func Init(appMgrIP string, appMgrPort string, clientNumber string) *ClientInfo {
 		// Lock
 		mutexServerUpdate: &sync.Mutex{},
 		// Simulated data
-		amulatedNetwork: amulatedNetwork,
+		EmulatedNetwork: EmulatedNetwork,
 		mutexNetwork:    &sync.Mutex{},
 	}
 	return ci
@@ -576,7 +576,22 @@ Loop:
 
 		t2 := time.Now()
 
-		log.Printf("Frame latency - %v \n", t2.Sub(t1))
+		captainName := "wrong address"
+		if whichIp == "34.204.1.56" {
+			captainName = "captain1"
+		} else if whichIp == "54.88.30.130" {
+			captainName = "captain2"
+		} else if whichIp == "18.206.35.37" {
+			captainName = "captain3"
+		} else if whichIp == "54.225.9.145" {
+			captainName = "captain4"
+		} else if whichIp == "3.86.232.178" {
+			captainName = "captain5"
+		} else if whichIp == "54.90.87.170" {
+			captainName = "captain6"
+		}
+
+		log.Printf("%s %v \n", captainName, t2.Sub(t1))
 
 		_, err := gocv.NewMatFromBytes(int(width), int(height), gocv.MatType(matType), dataRecv)
 		if err != nil {
@@ -589,6 +604,7 @@ func main() {
 	appMgrIP := os.Args[1]
 	appMgrPort := os.Args[2]
 	clientNumber := os.Args[3]
+	// tag := os.Args[4]
 
 	ci := Init(appMgrIP, appMgrPort, clientNumber)
 
