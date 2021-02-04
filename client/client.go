@@ -446,7 +446,7 @@ Loop2:
 }
 
 func (ci *ClientInfo) PeriodicFuncCalls() {
-	queryListTicker := time.NewTicker(7 * time.Second)
+	queryListTicker := time.NewTicker(5 * time.Second)
 	// the period of periodic query is [5 - 7] seconds
 	for {
 		select {
@@ -590,17 +590,17 @@ Loop:
 		t2 := time.Now()
 
 		captainName := "wrong address"
-		if whichIp == "34.204.1.56" {
+		if whichIp == "52.91.63.169" {
 			captainName = "captain1"
-		} else if whichIp == "54.88.30.130" {
+		} else if whichIp == "100.24.33.137" {
 			captainName = "captain2"
-		} else if whichIp == "18.206.35.37" {
+		} else if whichIp == "54.84.211.100" {
 			captainName = "captain3"
-		} else if whichIp == "54.225.9.145" {
+		} else if whichIp == "35.173.133.75" {
 			captainName = "captain4"
-		} else if whichIp == "3.86.232.178" {
+		} else if whichIp == "100.26.193.124" {
 			captainName = "captain5"
-		} else if whichIp == "54.90.87.170" {
+		} else if whichIp == "18.206.123.184" {
 			captainName = "captain6"
 		}
 
