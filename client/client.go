@@ -24,78 +24,78 @@ func generateEmulatedData(clientNumber string) map[string]EmulatedNetwork {
 	result := make(map[string]EmulatedNetwork)
 	// *Set up simulated data
 	if clientNumber == "client1" {
-		result["34.204.1.56"] = EmulatedNetwork{
-			latency:   "3ms",
-			bandwidth: 100,
-		}
-		result["54.88.30.130"] = EmulatedNetwork{
-			latency:   "20ms",
-			bandwidth: 30,
-		}
-		result["18.206.35.37"] = EmulatedNetwork{
-			latency:   "45ms",
-			bandwidth: 30,
-		}
-		result["54.225.9.145"] = EmulatedNetwork{
-			latency:   "50ms",
-			bandwidth: 30,
-		}
-		result["3.86.232.178"] = EmulatedNetwork{
-			latency:   "28ms",
-			bandwidth: 30,
-		}
-		result["54.90.87.170"] = EmulatedNetwork{
-			latency:   "32ms",
-			bandwidth: 30,
-		}
-	} else if clientNumber == "client2" {
-		result["34.204.1.56"] = EmulatedNetwork{
-			latency:   "48ms",
-			bandwidth: 15,
-		}
-		result["54.88.30.130"] = EmulatedNetwork{
-			latency:   "42ms",
-			bandwidth: 15,
-		}
-		result["18.206.35.37"] = EmulatedNetwork{
+		result["52.91.63.169"] = EmulatedNetwork{
 			latency:   "3ms",
 			bandwidth: 450,
 		}
-		result["54.225.9.145"] = EmulatedNetwork{
+		result["100.24.33.137"] = EmulatedNetwork{
+			latency:   "20ms",
+			bandwidth: 30,
+		}
+		result["54.84.211.100"] = EmulatedNetwork{
+			latency:   "45ms",
+			bandwidth: 30,
+		}
+		result["35.173.133.75"] = EmulatedNetwork{
+			latency:   "50ms",
+			bandwidth: 30,
+		}
+		result["100.26.193.124"] = EmulatedNetwork{
+			latency:   "28ms",
+			bandwidth: 30,
+		}
+		result["18.206.123.184"] = EmulatedNetwork{
+			latency:   "18ms",
+			bandwidth: 30,
+		}
+	} else if clientNumber == "client2" {
+		result["52.91.63.169"] = EmulatedNetwork{
+			latency:   "28ms",
+			bandwidth: 15,
+		}
+		result["100.24.33.137"] = EmulatedNetwork{
+			latency:   "42ms",
+			bandwidth: 15,
+		}
+		result["54.84.211.100"] = EmulatedNetwork{
+			latency:   "3ms",
+			bandwidth: 100,
+		}
+		result["35.173.133.75"] = EmulatedNetwork{
 			latency:   "22ms",
 			bandwidth: 15,
 		}
-		result["3.86.232.178"] = EmulatedNetwork{
+		result["100.26.193.124"] = EmulatedNetwork{
 			latency:   "45ms",
 			bandwidth: 15,
 		}
-		result["54.90.87.170"] = EmulatedNetwork{
+		result["18.206.123.184"] = EmulatedNetwork{
 			latency:   "41ms",
 			bandwidth: 15,
 		}
 	} else if clientNumber == "client3" {
-		result["34.204.1.56"] = EmulatedNetwork{
-			latency:   "25ms",
+		result["52.91.63.169"] = EmulatedNetwork{
+			latency:   "20ms",
 			bandwidth: 22,
 		}
-		result["54.88.30.130"] = EmulatedNetwork{
+		result["100.24.33.137"] = EmulatedNetwork{
 			latency:   "27ms",
 			bandwidth: 22,
 		}
-		result["18.206.35.37"] = EmulatedNetwork{
+		result["54.84.211.100"] = EmulatedNetwork{
 			latency:   "30ms",
 			bandwidth: 22,
 		}
-		result["54.225.9.145"] = EmulatedNetwork{
+		result["35.173.133.75"] = EmulatedNetwork{
 			latency:   "35ms",
 			bandwidth: 22,
 		}
-		result["3.86.232.178"] = EmulatedNetwork{
-			latency:   "10ms",
+		result["100.26.193.124"] = EmulatedNetwork{
+			latency:   "23ms",
 			bandwidth: 22,
 		}
-		result["54.90.87.170"] = EmulatedNetwork{
-			latency:   "23ms",
+		result["18.206.123.184"] = EmulatedNetwork{
+			latency:   "10ms",
 			bandwidth: 22,
 		}
 	} else {
@@ -167,16 +167,29 @@ type ServerConnection struct {
 	stream  clientToTask.RpcClientToTask_SendRecvImageClient
 }
 
-func Init(appMgrIP string, appMgrPort string, clientNumber string) *ClientInfo {
+func Init(appMgrIP string, appMgrPort string, clientNumber string, where string, tag string) *ClientInfo {
 	EmulatedNetwork := generateEmulatedData(clientNumber)
 	log.Println(EmulatedNetwork)
 
 	// (1) Set up client info
 	clientId := guuid.New().String()
-	lanResource := "Keller"
-	loc := &appcomm.Location{
-		Lat: 1.1,
-		Lon: 1.1,
+	lanResource := tag
+	var loc *appcomm.Location
+	if where == "close" { // Minneapolis
+		loc = &appcomm.Location{
+			Lat: 44.98,
+			Lon: -93.24,
+		}
+	} else if where == "far" { // Duluth
+		loc = &appcomm.Location{
+			Lat: 46.79,
+			Lon: -92.11,
+		}
+	} else { // other
+		loc = &appcomm.Location{ // Rochester
+			Lat: 44.02,
+			Lon: -92.47,
+		}
 	}
 	whichApp := &appcomm.UUID{Value: strconv.Itoa(1)}
 
@@ -196,7 +209,7 @@ func Init(appMgrIP string, appMgrPort string, clientNumber string) *ClientInfo {
 		// TODO: add lanResource
 		ClientId:    &appcomm.UUID{Value: clientId},
 		GeoLocation: loc,
-		Tag:         []string{},
+		Tag:         []string{lanResource},
 		AppId:       whichApp,
 	})
 	if err != nil {
@@ -433,7 +446,7 @@ Loop2:
 }
 
 func (ci *ClientInfo) PeriodicFuncCalls() {
-	queryListTicker := time.NewTicker(5 * time.Second)
+	queryListTicker := time.NewTicker(7 * time.Second)
 	// the period of periodic query is [5 - 7] seconds
 	for {
 		select {
@@ -601,12 +614,17 @@ Loop:
 }
 
 func main() {
+	if len(os.Args) < 6 {
+		log.Println("Not enough parameters: [AM IP] [AM port] [client?] [close/far/other] [tag]")
+		return
+	}
 	appMgrIP := os.Args[1]
 	appMgrPort := os.Args[2]
 	clientNumber := os.Args[3]
-	// tag := os.Args[4]
+	loc := os.Args[4]
+	tag := os.Args[5]
 
-	ci := Init(appMgrIP, appMgrPort, clientNumber)
+	ci := Init(appMgrIP, appMgrPort, clientNumber, loc, tag)
 
 	// Periodic query
 	go ci.PeriodicFuncCalls()
