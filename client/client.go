@@ -24,77 +24,77 @@ func generateEmulatedData(clientNumber string) map[string]EmulatedNetwork {
 	result := make(map[string]EmulatedNetwork)
 	// *Set up simulated data
 	if clientNumber == "client1" {
-		result["52.91.63.169"] = EmulatedNetwork{
+		result["3.88.39.123"] = EmulatedNetwork{
 			latency:   "3ms",
 			bandwidth: 450,
 		}
-		result["100.24.33.137"] = EmulatedNetwork{
+		result["34.239.128.51"] = EmulatedNetwork{
 			latency:   "20ms",
 			bandwidth: 30,
 		}
-		result["54.84.211.100"] = EmulatedNetwork{
+		result["35.170.192.158"] = EmulatedNetwork{
 			latency:   "45ms",
 			bandwidth: 30,
 		}
-		result["35.173.133.75"] = EmulatedNetwork{
+		result["3.88.85.7"] = EmulatedNetwork{
 			latency:   "50ms",
 			bandwidth: 30,
 		}
-		result["100.26.193.124"] = EmulatedNetwork{
+		result["52.87.164.149"] = EmulatedNetwork{
 			latency:   "28ms",
 			bandwidth: 30,
 		}
-		result["18.206.123.184"] = EmulatedNetwork{
+		result["54.172.153.187"] = EmulatedNetwork{
 			latency:   "18ms",
 			bandwidth: 30,
 		}
 	} else if clientNumber == "client2" {
-		result["52.91.63.169"] = EmulatedNetwork{
+		result["3.88.39.123"] = EmulatedNetwork{
 			latency:   "28ms",
 			bandwidth: 15,
 		}
-		result["100.24.33.137"] = EmulatedNetwork{
+		result["34.239.128.51"] = EmulatedNetwork{
 			latency:   "42ms",
 			bandwidth: 15,
 		}
-		result["54.84.211.100"] = EmulatedNetwork{
+		result["35.170.192.158"] = EmulatedNetwork{
 			latency:   "3ms",
 			bandwidth: 100,
 		}
-		result["35.173.133.75"] = EmulatedNetwork{
+		result["3.88.85.7"] = EmulatedNetwork{
 			latency:   "22ms",
 			bandwidth: 15,
 		}
-		result["100.26.193.124"] = EmulatedNetwork{
+		result["52.87.164.149"] = EmulatedNetwork{
 			latency:   "45ms",
 			bandwidth: 15,
 		}
-		result["18.206.123.184"] = EmulatedNetwork{
+		result["54.172.153.187"] = EmulatedNetwork{
 			latency:   "41ms",
 			bandwidth: 15,
 		}
 	} else if clientNumber == "client3" {
-		result["52.91.63.169"] = EmulatedNetwork{
+		result["3.88.39.123"] = EmulatedNetwork{
 			latency:   "20ms",
 			bandwidth: 22,
 		}
-		result["100.24.33.137"] = EmulatedNetwork{
+		result["34.239.128.51"] = EmulatedNetwork{
 			latency:   "27ms",
 			bandwidth: 22,
 		}
-		result["54.84.211.100"] = EmulatedNetwork{
+		result["35.170.192.158"] = EmulatedNetwork{
 			latency:   "30ms",
 			bandwidth: 22,
 		}
-		result["35.173.133.75"] = EmulatedNetwork{
+		result["3.88.85.7"] = EmulatedNetwork{
 			latency:   "35ms",
 			bandwidth: 22,
 		}
-		result["100.26.193.124"] = EmulatedNetwork{
+		result["52.87.164.149"] = EmulatedNetwork{
 			latency:   "23ms",
 			bandwidth: 22,
 		}
-		result["18.206.123.184"] = EmulatedNetwork{
+		result["54.172.153.187"] = EmulatedNetwork{
 			latency:   "10ms",
 			bandwidth: 22,
 		}
@@ -590,17 +590,17 @@ Loop:
 		t2 := time.Now()
 
 		captainName := "wrong address"
-		if whichIp == "52.91.63.169" {
+		if whichIp == "3.88.39.123" {
 			captainName = "captain1"
-		} else if whichIp == "100.24.33.137" {
+		} else if whichIp == "34.239.128.51" {
 			captainName = "captain2"
-		} else if whichIp == "54.84.211.100" {
+		} else if whichIp == "35.170.192.158" {
 			captainName = "captain3"
-		} else if whichIp == "35.173.133.75" {
+		} else if whichIp == "3.88.85.7" {
 			captainName = "captain4"
-		} else if whichIp == "100.26.193.124" {
+		} else if whichIp == "52.87.164.149" {
 			captainName = "captain5"
-		} else if whichIp == "18.206.123.184" {
+		} else if whichIp == "54.172.153.187" {
 			captainName = "captain6"
 		}
 
