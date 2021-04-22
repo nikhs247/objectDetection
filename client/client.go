@@ -20,6 +20,23 @@ import (
 	"google.golang.org/grpc"
 )
 
+func (ci *ClientInfo) MobilitySimulation() {
+	// After 10 second switch the location
+	time.Sleep(10 * time.Second)
+	mobiledData := generateEmulatedData("client2mobile")
+	// Modify the location
+	ci.mutexLocation.Lock()
+	ci.location = &appcomm.Location{
+		Lat: 46.79,
+		Lon: -92.11,
+	}
+	ci.mutexLocation.Unlock()
+	// Modify the simulation network data
+	ci.mutexNetwork.Lock()
+	ci.EmulatedNetwork = mobiledData
+	ci.mutexNetwork.Unlock()
+}
+
 func generateEmulatedData(clientNumber string) map[string]EmulatedNetwork {
 	result := make(map[string]EmulatedNetwork)
 	// *Set up simulated data
@@ -30,73 +47,130 @@ func generateEmulatedData(clientNumber string) map[string]EmulatedNetwork {
 		}
 		result["34.239.128.51"] = EmulatedNetwork{
 			latency:   "20ms",
-			bandwidth: 30,
+			bandwidth: 35,
 		}
 		result["35.170.192.158"] = EmulatedNetwork{
-			latency:   "45ms",
-			bandwidth: 30,
-		}
-		result["3.88.85.7"] = EmulatedNetwork{
-			latency:   "50ms",
-			bandwidth: 30,
-		}
-		result["52.87.164.149"] = EmulatedNetwork{
-			latency:   "28ms",
-			bandwidth: 30,
-		}
-		result["54.172.153.187"] = EmulatedNetwork{
-			latency:   "18ms",
-			bandwidth: 30,
-		}
-	} else if clientNumber == "client2" {
-		result["3.88.39.123"] = EmulatedNetwork{
-			latency:   "28ms",
-			bandwidth: 15,
-		}
-		result["34.239.128.51"] = EmulatedNetwork{
-			latency:   "42ms",
-			bandwidth: 15,
-		}
-		result["35.170.192.158"] = EmulatedNetwork{
-			latency:   "3ms",
-			bandwidth: 100,
+			latency:   "1000000ms",
+			bandwidth: 1,
 		}
 		result["3.88.85.7"] = EmulatedNetwork{
 			latency:   "22ms",
-			bandwidth: 15,
+			bandwidth: 35,
 		}
 		result["52.87.164.149"] = EmulatedNetwork{
-			latency:   "45ms",
-			bandwidth: 15,
+			latency:   "24ms",
+			bandwidth: 30,
 		}
 		result["54.172.153.187"] = EmulatedNetwork{
-			latency:   "41ms",
-			bandwidth: 15,
+			latency:   "1000000ms",
+			bandwidth: 1,
 		}
-	} else if clientNumber == "client3" {
+		result["54.172.153.187"] = EmulatedNetwork{
+			latency:   "35ms",
+			bandwidth: 30,
+		}
+		result["54.172.153.187"] = EmulatedNetwork{
+			latency:   "33ms",
+			bandwidth: 30,
+		}
+	} else if clientNumber == "client2" { // at city 1
 		result["3.88.39.123"] = EmulatedNetwork{
-			latency:   "20ms",
-			bandwidth: 22,
+			latency:   "22ms",
+			bandwidth: 300,
 		}
 		result["34.239.128.51"] = EmulatedNetwork{
-			latency:   "27ms",
-			bandwidth: 22,
+			latency:   "28ms",
+			bandwidth: 300,
 		}
 		result["35.170.192.158"] = EmulatedNetwork{
-			latency:   "30ms",
-			bandwidth: 22,
+			latency:   "10ms",
+			bandwidth: 450,
 		}
 		result["3.88.85.7"] = EmulatedNetwork{
 			latency:   "35ms",
-			bandwidth: 22,
+			bandwidth: 300,
 		}
 		result["52.87.164.149"] = EmulatedNetwork{
-			latency:   "23ms",
-			bandwidth: 22,
+			latency:   "52ms",
+			bandwidth: 280,
+		}
+		result["54.172.153.187"] = EmulatedNetwork{
+			latency:   "1000000ms",
+			bandwidth: 1,
+		}
+		result["54.172.153.187"] = EmulatedNetwork{
+			latency:   "65ms",
+			bandwidth: 280,
+		}
+		result["54.172.153.187"] = EmulatedNetwork{
+			latency:   "68ms",
+			bandwidth: 280,
+		}
+	} else if clientNumber == "client3" {
+		result["3.88.39.123"] = EmulatedNetwork{
+			latency:   "25ms",
+			bandwidth: 30,
+		}
+		result["34.239.128.51"] = EmulatedNetwork{
+			latency:   "37ms",
+			bandwidth: 30,
+		}
+		result["35.170.192.158"] = EmulatedNetwork{
+			latency:   "1000000ms",
+			bandwidth: 1,
+		}
+		result["3.88.85.7"] = EmulatedNetwork{
+			latency:   "35ms",
+			bandwidth: 30,
+		}
+		result["52.87.164.149"] = EmulatedNetwork{
+			latency:   "15ms",
+			bandwidth: 35,
+		}
+		result["54.172.153.187"] = EmulatedNetwork{
+			latency:   "1000000ms",
+			bandwidth: 1,
+		}
+		result["54.172.153.187"] = EmulatedNetwork{
+			latency:   "21ms",
+			bandwidth: 35,
+		}
+		result["54.172.153.187"] = EmulatedNetwork{
+			latency:   "21ms",
+			bandwidth: 35,
+		}
+	} else if clientNumber == "client2mobile" {
+		result["3.88.39.123"] = EmulatedNetwork{
+			latency:   "52ms",
+			bandwidth: 280,
+		}
+		result["34.239.128.51"] = EmulatedNetwork{
+			latency:   "68ms",
+			bandwidth: 280,
+		}
+		result["35.170.192.158"] = EmulatedNetwork{
+			latency:   "1000000ms",
+			bandwidth: 1,
+		}
+		result["3.88.85.7"] = EmulatedNetwork{
+			latency:   "65ms",
+			bandwidth: 280,
+		}
+		result["52.87.164.149"] = EmulatedNetwork{
+			latency:   "25ms",
+			bandwidth: 300,
 		}
 		result["54.172.153.187"] = EmulatedNetwork{
 			latency:   "10ms",
-			bandwidth: 22,
+			bandwidth: 450,
+		}
+		result["54.172.153.187"] = EmulatedNetwork{
+			latency:   "38ms",
+			bandwidth: 300,
+		}
+		result["54.172.153.187"] = EmulatedNetwork{
+			latency:   "35ms",
+			bandwidth: 300,
 		}
 	} else {
 		log.Println("client number input invalid")
@@ -156,6 +230,8 @@ type ClientInfo struct {
 	// Emulated data
 	EmulatedNetwork map[string]EmulatedNetwork
 	mutexNetwork    *sync.Mutex
+	// Temperal lock to access location
+	mutexLocation *sync.Mutex
 }
 
 // Information required for each server candidate
@@ -259,16 +335,23 @@ func Init(appMgrIP string, appMgrPort string, clientNumber string, where string,
 		// Simulated data
 		EmulatedNetwork: EmulatedNetwork,
 		mutexNetwork:    &sync.Mutex{},
+
+		mutexLocation: &sync.Mutex{},
 	}
 	return ci
 }
 
 func (ci *ClientInfo) QueryListFromAppManager() {
 	/////////////////////////////////////////////////////// (1) Get taskList from Application Manager
+	// get location
+	ci.mutexLocation.Lock()
+	l := ci.location
+	ci.mutexLocation.Unlock()
+
 	list, err := ci.appManagerService.QueryTaskList(context.Background(), &appcomm.Query{
 		// TODO: specify LAN resources
 		ClientId:    &appcomm.UUID{Value: ci.id},
-		GeoLocation: ci.location,
+		GeoLocation: l,
 		Tag:         []string{},
 		AppId:       ci.appId,
 	})
@@ -602,6 +685,10 @@ Loop:
 			captainName = "captain5"
 		} else if whichIp == "54.172.153.187" {
 			captainName = "captain6"
+		} else if whichIp == "54.172.153.187" {
+			captainName = "captain7"
+		} else if whichIp == "54.172.153.187" {
+			captainName = "captain8"
 		}
 
 		log.Printf("%s %v \n", captainName, t2.Sub(t1))
@@ -614,6 +701,7 @@ Loop:
 }
 
 func main() {
+
 	if len(os.Args) < 6 {
 		log.Println("Not enough parameters: [AM IP] [AM port] [client?] [close/far/other] [tag]")
 		return
@@ -625,6 +713,9 @@ func main() {
 	tag := os.Args[5]
 
 	ci := Init(appMgrIP, appMgrPort, clientNumber, loc, tag)
+
+	// This is for mobility simulation
+	go ci.MobilitySimulation()
 
 	// Periodic query
 	go ci.PeriodicFuncCalls()
