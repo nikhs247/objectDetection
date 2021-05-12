@@ -443,27 +443,28 @@ Loop:
 
 		t2 := time.Now()
 
-		captainName := "wrong address"
-		if whichIp == "75.72.180.105" {
-			captainName = "Sumanth"
-		} else if whichIp == "34.239.128.51" {
-			captainName = "captain2"
-		} else if whichIp == "35.170.192.158" {
-			captainName = "captain3"
-		} else if whichIp == "3.88.85.7" {
-			captainName = "captain4"
-		} else if whichIp == "52.87.164.149" {
-			captainName = "captain5"
-		} else if whichIp == "54.172.153.187" {
-			captainName = "captain6"
-		} else if whichIp == "54.172.153.187" {
-			captainName = "captain7"
-		} else if whichIp == "54.172.153.187" {
-			captainName = "captain8"
-		}
+		// captainName := "wrong address"
+		// if whichIp == "75.72.180.105" {
+		// 	captainName = "Sumanth"
+		// } else if whichIp == "34.239.128.51" {
+		// 	captainName = "captain2"
+		// } else if whichIp == "35.170.192.158" {
+		// 	captainName = "captain3"
+		// } else if whichIp == "3.88.85.7" {
+		// 	captainName = "captain4"
+		// } else if whichIp == "52.87.164.149" {
+		// 	captainName = "captain5"
+		// } else if whichIp == "54.172.153.187" {
+		// 	captainName = "captain6"
+		// } else if whichIp == "54.172.153.187" {
+		// 	captainName = "captain7"
+		// } else if whichIp == "54.172.153.187" {
+		// 	captainName = "captain8"
+		// }
 
 		// Print out the frame latency
-		log.Printf("%s %v \n", captainName, t2.Sub(t1))
+		// log.Printf("%s %v \n", captainName, t2.Sub(t1))
+		log.Printf("%s %v \n", whichIp, t2.Sub(t1))
 	}
 }
 
