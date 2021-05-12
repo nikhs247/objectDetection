@@ -34,7 +34,7 @@ type TaskServer struct {
 }
 
 func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecvImageServer) error {
-
+	log.Println("One new user conencted")
 	for {
 		data := make([]byte, 0)
 		var width int32
@@ -105,6 +105,8 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecv
 			return nil
 		}
 	}
+	log.Println("One new user terminated")
+	return nil
 }
 
 func (ts *TaskServer) ListenRoutine() {
@@ -120,6 +122,10 @@ func (ts *TaskServer) ListenRoutine() {
 }
 
 func main() {
+	if len(os.Args) != 2 {
+		log.Println(" Need port number")
+		return
+	}
 	ip := "0.0.0.0"
 	listenPort := os.Args[1]
 
@@ -148,6 +154,7 @@ func main() {
 		mutexAlgo:  &sync.Mutex{},
 		appInfo:    ai,
 	}
+	log.Println("Server start running...")
 	ts.ListenRoutine()
 }
 
