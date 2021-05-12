@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"image"
 	"image/color"
@@ -16,7 +15,6 @@ import (
 	"gocv.io/x/gocv"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
-	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 type ApplicationInfo struct {
@@ -29,122 +27,10 @@ type ApplicationInfo struct {
 type TaskServer struct {
 	clientToTask.UnimplementedRpcClientToTaskServer
 
-	IP             string
-	ListenPort     string
-	processingTime time.Duration
-	mutexProcTime  *sync.Mutex
-	appInfo        ApplicationInfo
-	updateTime     time.Time
-	mutexUpTime    *sync.Mutex
-	mutexAlgo      *sync.Mutex
-}
-
-func logTime() {
-	fmt.Fprintf(os.Stderr, "[%s] ", time.Now().Format("2006-01-02 15:04:05"))
-}
-
-// performDetection analyzes the results from the detector network,
-// which produces an output blob with a shape 1x1xNx7
-// where N is the number of detections, and each detection
-// is a vector of float values
-// [batchId, classId, confidence, left, top, right, bottom]
-func performDetection(frame *gocv.Mat, results gocv.Mat) {
-	for i := 0; i < results.Total(); i += 7 {
-		confidence := results.GetFloatAt(0, i+2)
-		if confidence > 0.5 {
-			left := int(results.GetFloatAt(0, i+3) * float32(frame.Cols()))
-			top := int(results.GetFloatAt(0, i+4) * float32(frame.Rows()))
-			right := int(results.GetFloatAt(0, i+5) * float32(frame.Cols()))
-			bottom := int(results.GetFloatAt(0, i+6) * float32(frame.Rows()))
-			gocv.Rectangle(frame, image.Rect(left, top, right, bottom), color.RGBA{0, 255, 0, 0}, 2)
-		}
-	}
-}
-
-func (ts *TaskServer) TestPerformance(ctx context.Context, testPerf *clientToTask.TestPerf) (*clientToTask.PerfData, error) {
-	clientID := testPerf.GetClientID()
-	var procTime time.Duration
-
-	ts.mutexProcTime.Lock()
-	procTime = ts.processingTime
-	diff := time.Since(ts.updateTime)
-	ts.mutexProcTime.Unlock()
-
-	thresholdDuration, err := time.ParseDuration("1s")
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("The difference is %v\n", diff)
-	idle := false
-	if diff > thresholdDuration {
-		idle = true
-	}
-
-	if !idle {
-		time.Sleep(procTime)
-		logTime()
-		fmt.Printf("%s: Processing time inside busy with diff %v---------------- %v\n", clientID, diff, procTime)
-	}
-
-	if idle {
-		// fmt.Println("I am idle")
-		t1 := time.Now()
-
-		img := gocv.IMRead("data/dummyFrame.jpg", gocv.IMReadColor)
-
-		dims := img.Size()
-		width := dims[0]
-		height := dims[1]
-		data := img.ToBytes()
-		matType := img.Type()
-
-		mat, err := gocv.NewMatFromBytes(int(width), int(height), gocv.MatType(matType), data)
-		if err != nil {
-			log.Fatalf("Error converting bytes to matrix: %v", err)
-		}
-
-		// convert image Mat to 300x300 blob that the object detector can analyze
-		blob := gocv.BlobFromImage(mat, ts.appInfo.ratio, image.Pt(300, 300), ts.appInfo.mean, ts.appInfo.swapRGB, false)
-
-		ts.mutexAlgo.Lock()
-		// feed the blob into the detector
-		ts.appInfo.net.SetInput(blob, "")
-
-		// run a forward pass thru the network
-		prob := ts.appInfo.net.Forward("")
-		ts.mutexAlgo.Unlock()
-
-		performDetection(&mat, prob)
-
-		prob.Close()
-		blob.Close()
-
-		procTime = time.Since(t1)
-
-		ts.mutexProcTime.Lock()
-		ts.updateTime = time.Now()
-		ts.processingTime = procTime
-		ts.mutexProcTime.Unlock()
-
-		logTime()
-		fmt.Printf("%s: Processing time inside idle with diff %v ---------------- %v\n", clientID, diff, procTime)
-	}
-	return &clientToTask.PerfData{
-		ProcTime: durationpb.New(procTime),
-	}, nil
-}
-
-func split(buf []byte, lim int) [][]byte {
-	var chunk []byte
-	chunks := make([][]byte, 0, len(buf)/lim+1)
-	for len(buf) >= lim {
-		chunk, buf = buf[:lim], buf[lim:]
-		chunks = append(chunks, chunk)
-	}
-	if len(buf) > 0 {
-		chunks = append(chunks, buf[:])
-	}
-	return chunks
+	IP         string
+	ListenPort string
+	mutexAlgo  *sync.Mutex
+	appInfo    ApplicationInfo
 }
 
 func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecvImageServer) error {
@@ -156,6 +42,7 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecv
 		var matType int32
 		var clientID string
 
+		// (1) Read one frame in chunks
 		for {
 			img, err := stream.Recv()
 			if err == io.EOF {
@@ -165,7 +52,6 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecv
 				log.Printf("Connection closed by client")
 				return nil
 			}
-			// fmt.Println("Received chunk")
 
 			if img.GetStart() == 1 {
 				width = img.GetWidth()
@@ -176,12 +62,13 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecv
 
 			chunk := img.GetImage()
 			data = append(data, chunk...)
-			// fmt.Printf("mattype - %d\n", matType)
+
 			if img.GetStart() == 0 {
 				break
 			}
 		}
 
+		// (2) Start processing the frame
 		t1 := time.Now()
 		mat, err := gocv.NewMatFromBytes(int(width), int(height), gocv.MatType(matType), data)
 		if err != nil {
@@ -204,59 +91,18 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecv
 		prob.Close()
 		blob.Close()
 
-		t2 := time.Since(t1)
+		t2 := time.Now()
 
-		ts.mutexProcTime.Lock()
-		ts.updateTime = time.Now()
-		ts.processingTime = t2
-		pTime := ts.processingTime
-		ts.mutexProcTime.Unlock()
+		log.Printf("%s Processing time: %v\n", clientID, t2.Sub(t1))
 
-		logTime()
-		fmt.Printf("%s:Processing time - %v\n", clientID, pTime)
-
-		dims := mat.Size()
-		imgdata := mat.ToBytes()
-		mattype := int32(mat.Type())
-
-		chunks := split(imgdata, 4096)
-		nChunks := len(chunks)
-		for i := 0; i < nChunks; i++ {
-			if i == 0 {
-				err = stream.Send(&clientToTask.ImageData{
-					Width:   int32(dims[0]),
-					Height:  int32(dims[1]),
-					MatType: mattype,
-					Image:   chunks[i],
-					Start:   1,
-				})
-
-				if err != nil {
-					log.Printf("Connection closed by client")
-					return nil
-				}
-			} else if i == nChunks-1 {
-				err = stream.Send(&clientToTask.ImageData{
-					Start: 0,
-					Image: chunks[i],
-				})
-
-				if err != nil {
-					log.Printf("Connection closed by client")
-					return nil
-				}
-
-			} else {
-				err = stream.Send(&clientToTask.ImageData{
-					Start: -1,
-					Image: chunks[i],
-				})
-
-				if err != nil {
-					log.Printf("Connection closed by client")
-					return nil
-				}
-			}
+		// Send the processing result back
+		err = stream.Send(&clientToTask.ProcessResult{
+			ResponseCode: 1,
+			Result:       "object detected",
+		})
+		if err != nil {
+			log.Printf("Connection closed by client")
+			return nil
 		}
 	}
 }
@@ -274,16 +120,11 @@ func (ts *TaskServer) ListenRoutine() {
 }
 
 func main() {
-	ip := os.Args[1]
-	listenPort := os.Args[2]
+	ip := "0.0.0.0"
+	listenPort := os.Args[1]
 
-	dur, err := time.ParseDuration("0h")
-	if err != nil {
-		panic(err)
-	}
-
-	model := "data/frozen_inference_graph.pb"
-	config := "data/ssd_mobilenet_v1.pbtxt"
+	model := "model/frozen_inference_graph.pb"
+	config := "model/ssd_mobilenet_v1.pbtxt"
 	net := gocv.ReadNet(model, config)
 	if net.Empty() {
 		log.Fatalf("Error reading network model from : %v %v\n", model, config)
@@ -302,14 +143,36 @@ func main() {
 		swapRGB: true,
 	}
 	ts := &TaskServer{
-		IP:             ip,
-		ListenPort:     listenPort,
-		mutexProcTime:  &sync.Mutex{},
-		mutexUpTime:    &sync.Mutex{},
-		mutexAlgo:      &sync.Mutex{},
-		processingTime: dur,
-		updateTime:     time.Time{},
-		appInfo:        ai,
+		IP:         ip,
+		ListenPort: listenPort,
+		mutexAlgo:  &sync.Mutex{},
+		appInfo:    ai,
 	}
 	ts.ListenRoutine()
+}
+
+func performDetection(frame *gocv.Mat, results gocv.Mat) {
+	for i := 0; i < results.Total(); i += 7 {
+		confidence := results.GetFloatAt(0, i+2)
+		if confidence > 0.5 {
+			left := int(results.GetFloatAt(0, i+3) * float32(frame.Cols()))
+			top := int(results.GetFloatAt(0, i+4) * float32(frame.Rows()))
+			right := int(results.GetFloatAt(0, i+5) * float32(frame.Cols()))
+			bottom := int(results.GetFloatAt(0, i+6) * float32(frame.Rows()))
+			gocv.Rectangle(frame, image.Rect(left, top, right, bottom), color.RGBA{0, 255, 0, 0}, 2)
+		}
+	}
+}
+
+func split(buf []byte, lim int) [][]byte {
+	var chunk []byte
+	chunks := make([][]byte, 0, len(buf)/lim+1)
+	for len(buf) >= lim {
+		chunk, buf = buf[:lim], buf[lim:]
+		chunks = append(chunks, chunk)
+	}
+	if len(buf) > 0 {
+		chunks = append(chunks, buf[:])
+	}
+	return chunks
 }
