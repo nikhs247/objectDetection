@@ -7,6 +7,7 @@ github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSs
 github.com/envoyproxy/go-control-plane v0.9.0/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/go-control-plane v0.9.9-0.20201210154907-fd9021fe5dad/go.mod h1:cXg6YxExXjJnVBQHBLXeUAgxn2UodCpnH306RInaBQk=
+github.com/envoyproxy/go-control-plane v0.9.9-0.20210217033140-668b12f5399d/go.mod h1:cXg6YxExXjJnVBQHBLXeUAgxn2UodCpnH306RInaBQk=
 github.com/envoyproxy/protoc-gen-validate v0.1.0/go.mod h1:iSmxcyjqTsJpI2R4NaDN7+kN2VEUnK/pcBlmesArF7c=
 github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b/go.mod h1:SBH7ygxi8pfUlaOkMMuAQtPIUF8ecWP5IEl/CR7VP2Q=
 github.com/golang/mock v1.1.1/go.mod h1:oTYuIxOrZwtPieC+H1uAHpcLFnEyAGVDL/k47Jfbm0A=
@@ -30,10 +31,14 @@ github.com/google/uuid v1.1.2/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+
 github.com/google/uuid v1.2.0 h1:qJYtXnJRWmpe7m/3XlyhrsLrEURqHRM2kxzoxXqyUDs=
 github.com/google/uuid v1.2.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
 github.com/nikhs247/objectDetection v0.0.0-20210130224013-33d2293a9012 h1:IaPoRXXQMPCAduekF+y3f6i/Q9U2CYqpxIa562ZafGQ=
+github.com/nikhs247/objectDetection v0.0.0-20210512175859-b14f48536de9 h1:+ZW4cVmmA1vZ1NwTK7dIo+pB81bd6BGH+wwTtMEBJgI=
+github.com/nikhs247/objectDetection v0.0.0-20210512175859-b14f48536de9/go.mod h1:Lip4tTJfAD8tbIi8eDVJwYjPsmoryBw60iFTtgZCX8w=
 github.com/nikhs247/objectDetection/comms v0.0.0-20210130224013-33d2293a9012 h1:fyInvEZq03056hOwkiOa7roUzv9ays2G5YbWQ7ZJedo=
 github.com/nikhs247/objectDetection/comms v0.0.0-20210130224013-33d2293a9012/go.mod h1:SATREKIqTW9WyfFw2lORVf1l2FxgcSJfsZeQ4LVr/fc=
 github.com/nikhs247/objectDetection/comms v0.0.0-20210203060026-c31316860a56 h1:uf/NLE6I+wCaRrctQcRNpfMuJzNHdgmVxMcrZbkAHik=
 github.com/nikhs247/objectDetection/comms v0.0.0-20210203060026-c31316860a56/go.mod h1:SATREKIqTW9WyfFw2lORVf1l2FxgcSJfsZeQ4LVr/fc=
+github.com/nikhs247/objectDetection/comms v0.0.0-20210512175859-b14f48536de9 h1:99iKcl4faaC6UIgBKhMPm/RpJ+sSqifvioxCeY36R9c=
+github.com/nikhs247/objectDetection/comms v0.0.0-20210512175859-b14f48536de9/go.mod h1:SATREKIqTW9WyfFw2lORVf1l2FxgcSJfsZeQ4LVr/fc=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4/go.mod h1:xMI15A0UPsDsEKsMN9yxemIoYk6Tm2C1GtYGdfGttqA=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
@@ -75,6 +80,8 @@ google.golang.org/grpc v1.25.1/go.mod h1:c3i+UQWmh7LiEpx4sFZnkU36qjEYZ0imhYfXVyQ
 google.golang.org/grpc v1.27.0/go.mod h1:qbnxyOmOxrQa7FizSgH+ReBfzJrCY1pSN7KXBS8abTk=
 google.golang.org/grpc v1.35.0 h1:TwIQcH3es+MojMVojxxfQ3l3OF2KzlRxML2xZq0kRo8=
 google.golang.org/grpc v1.35.0/go.mod h1:qjiiYl8FncCW8feJPdyg3v6XW24KsRHe+dy9BAGRRjU=
+google.golang.org/grpc v1.37.1 h1:ARnQJNWxGyYJpdf/JXscNlQr/uv607ZPU9Z7ogHi+iI=
+google.golang.org/grpc v1.37.1/go.mod h1:NREThFqKR1f3iQ6oBuvc5LadQuXVGo9rkm5ZGrQdJfM=
 google.golang.org/protobuf v0.0.0-20200109180630-ec00e32a8dfd/go.mod h1:DFci5gLYBciE7Vtevhsrf46CRTquxDuWsQurQQe4oz8=
 google.golang.org/protobuf v0.0.0-20200221191635-4d8936d0db64/go.mod h1:kwYJMbMJ01Woi6D6+Kah6886xMZcty6N08ah7+eCXa0=
 google.golang.org/protobuf v0.0.0-20200228230310-ab0ca4ff8a60/go.mod h1:cfTl7dwQJ+fmap5saPgwCLgHXTUD7jkjRqWcaiX5VyM=

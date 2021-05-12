@@ -30,6 +30,8 @@ github.com/google/go-cmp v0.5.0/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/
 github.com/google/uuid v1.1.2/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
 github.com/nikhs247/objectDetection/comms v0.0.0-20210128005340-ffc2586b3400 h1:o8jyO4NauCOTmBgluqBmeH7pHaGALvXh/UGfwljSukI=
 github.com/nikhs247/objectDetection/comms v0.0.0-20210128005340-ffc2586b3400/go.mod h1:SATREKIqTW9WyfFw2lORVf1l2FxgcSJfsZeQ4LVr/fc=
+github.com/nikhs247/objectDetection/comms v0.0.0-20210512175859-b14f48536de9 h1:99iKcl4faaC6UIgBKhMPm/RpJ+sSqifvioxCeY36R9c=
+github.com/nikhs247/objectDetection/comms v0.0.0-20210512175859-b14f48536de9/go.mod h1:SATREKIqTW9WyfFw2lORVf1l2FxgcSJfsZeQ4LVr/fc=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4/go.mod h1:xMI15A0UPsDsEKsMN9yxemIoYk6Tm2C1GtYGdfGttqA=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
