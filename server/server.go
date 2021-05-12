@@ -85,7 +85,7 @@ func (ts *TaskServer) TestPerformance(ctx context.Context, testPerf *clientToTas
 		// fmt.Println("I am idle")
 		t1 := time.Now()
 
-		img := gocv.IMRead("data/dummyFrame.jpg", gocv.IMReadColor)
+		img := gocv.IMRead("dummydata/dummyFrame.jpg", gocv.IMReadColor)
 
 		dims := img.Size()
 		width := dims[0]

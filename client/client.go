@@ -241,8 +241,12 @@ Loop2:
 			// NOW probing only considers latency + execute dummy data
 		}
 		t2 := time.Now()
+		consumed := t2.Sub(t1)
 		// Add valid server into sort list for sorting
-		sortList = append(sortList, Pair{i, t2.Sub(t1)})
+		sortList = append(sortList, Pair{i, consumed})
+
+		// Print out the performance probing result
+		log.Printf(" -------- Probing %s:%s %v\n", testList[i].ip, testList[i].port, consumed)
 
 		// First non-nil server in testList is the currently using server
 		// Normal case, current server is just testList[0]. But in case the server faliure happens during performance test
