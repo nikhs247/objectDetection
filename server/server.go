@@ -39,10 +39,6 @@ type TaskServer struct {
 	mutexAlgo      *sync.Mutex
 }
 
-func logTime() {
-	fmt.Fprintf(os.Stderr, "[%s] ", time.Now().Format("2006-01-02 15:04:05"))
-}
-
 // performDetection analyzes the results from the detector network,
 // which produces an output blob with a shape 1x1xNx7
 // where N is the number of detections, and each detection
@@ -82,8 +78,7 @@ func (ts *TaskServer) TestPerformance(ctx context.Context, testPerf *clientToTas
 
 	if !idle {
 		time.Sleep(procTime)
-		logTime()
-		fmt.Printf("%s: Processing time inside busy with diff %v---------------- %v\n", clientID, diff, procTime)
+		log.Printf("%s: Processing time inside busy with diff %v---------------- %v\n", clientID, diff, procTime)
 	}
 
 	if idle {
@@ -126,8 +121,7 @@ func (ts *TaskServer) TestPerformance(ctx context.Context, testPerf *clientToTas
 		ts.processingTime = procTime
 		ts.mutexProcTime.Unlock()
 
-		logTime()
-		fmt.Printf("%s: Processing time inside idle with diff %v ---------------- %v\n", clientID, diff, procTime)
+		log.Printf("%s: Processing time inside idle with diff %v ---------------- %v\n", clientID, diff, procTime)
 	}
 	return &clientToTask.PerfData{
 		ProcTime: durationpb.New(procTime),
@@ -151,9 +145,6 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecv
 
 	for {
 		data := make([]byte, 0)
-		var width int32
-		var height int32
-		var matType int32
 		var clientID string
 
 		for {
@@ -165,29 +156,23 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecv
 				log.Printf("Connection closed by client")
 				return nil
 			}
-			// fmt.Println("Received chunk")
 
 			if img.GetStart() == 1 {
-				width = img.GetWidth()
-				height = img.GetHeight()
-				matType = img.GetMatType()
 				clientID = img.GetClientID()
 			}
 
 			chunk := img.GetImage()
 			data = append(data, chunk...)
-			// fmt.Printf("mattype - %d\n", matType)
+
 			if img.GetStart() == 0 {
 				break
 			}
 		}
 
-		t1 := time.Now()
-		mat, err := gocv.NewMatFromBytes(int(width), int(height), gocv.MatType(matType), data)
-		if err != nil {
-			log.Fatalf("Error converting bytes to matrix: %v", err)
-		}
+		// Decode the received frame
+		mat, _ := gocv.IMDecode(data, -1)
 
+		t1 := time.Now()
 		// convert image Mat to 300x300 blob that the object detector can analyze
 		blob := gocv.BlobFromImage(mat, ts.appInfo.ratio, image.Pt(300, 300), ts.appInfo.mean, ts.appInfo.swapRGB, false)
 
@@ -212,51 +197,16 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecv
 		pTime := ts.processingTime
 		ts.mutexProcTime.Unlock()
 
-		logTime()
-		fmt.Printf("%s:Processing time - %v\n", clientID, pTime)
+		log.Printf("%s:Processing time - %v\n", clientID, pTime)
 
-		dims := mat.Size()
-		imgdata := mat.ToBytes()
-		mattype := int32(mat.Type())
-
-		chunks := split(imgdata, 4096)
-		nChunks := len(chunks)
-		for i := 0; i < nChunks; i++ {
-			if i == 0 {
-				err = stream.Send(&clientToTask.ImageData{
-					Width:   int32(dims[0]),
-					Height:  int32(dims[1]),
-					MatType: mattype,
-					Image:   chunks[i],
-					Start:   1,
-				})
-
-				if err != nil {
-					log.Printf("Connection closed by client")
-					return nil
-				}
-			} else if i == nChunks-1 {
-				err = stream.Send(&clientToTask.ImageData{
-					Start: 0,
-					Image: chunks[i],
-				})
-
-				if err != nil {
-					log.Printf("Connection closed by client")
-					return nil
-				}
-
-			} else {
-				err = stream.Send(&clientToTask.ImageData{
-					Start: -1,
-					Image: chunks[i],
-				})
-
-				if err != nil {
-					log.Printf("Connection closed by client")
-					return nil
-				}
-			}
+		// Send back the detection result
+		err := stream.Send(&clientToTask.ProcessResult{
+			ResponseCode: 1,
+			Result:       "object detected",
+		})
+		if err != nil {
+			log.Printf("Connection closed by client")
+			return nil
 		}
 	}
 }
@@ -282,8 +232,8 @@ func main() {
 		panic(err)
 	}
 
-	model := "data/frozen_inference_graph.pb"
-	config := "data/ssd_mobilenet_v1.pbtxt"
+	model := "model/frozen_inference_graph.pb"
+	config := "model/ssd_mobilenet_v1.pbtxt"
 	net := gocv.ReadNet(model, config)
 	if net.Empty() {
 		log.Fatalf("Error reading network model from : %v %v\n", model, config)

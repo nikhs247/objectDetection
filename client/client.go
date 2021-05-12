@@ -39,9 +39,6 @@ type ClientInfo struct {
 
 	// Lock for shared data structure
 	mutexServerUpdate *sync.Mutex
-
-	// Temperal lock to access location
-	mutexLocation *sync.Mutex
 }
 
 // Information required for each server candidate
@@ -53,28 +50,29 @@ type ServerConnection struct {
 	stream  clientToTask.RpcClientToTask_SendRecvImageClient
 }
 
-func Init(appMgrIP string, appMgrPort string, clientNumber string, where string, tag string) *ClientInfo {
+func Init(appMgrIP string, appMgrPort string, where string, tag string) *ClientInfo {
 
 	// (1) Set up client info
 	clientId := guuid.New().String()
-	lanResource := tag
+
 	var loc *appcomm.Location
-	if where == "close" { // Minneapolis
+	if where == "Minneapolis" { // Minneapolis: close
 		loc = &appcomm.Location{
 			Lat: 44.98,
 			Lon: -93.24,
 		}
-	} else if where == "far" { // Duluth
+	} else if where == "Duluth" { // Duluth: far
 		loc = &appcomm.Location{
 			Lat: 46.79,
 			Lon: -92.11,
 		}
-	} else { // other
-		loc = &appcomm.Location{ // Rochester
+	} else {
+		loc = &appcomm.Location{ // Rochester: other
 			Lat: 44.02,
 			Lon: -92.47,
 		}
 	}
+	// which application this client is requesting for
 	whichApp := &appcomm.UUID{Value: strconv.Itoa(1)}
 
 	// (2) Build up connection to Application Manager
@@ -90,10 +88,9 @@ func Init(appMgrIP string, appMgrPort string, clientNumber string, where string,
 
 	// (3) Get initial server list from Application Manager
 	list, err := appService.QueryTaskList(context.Background(), &appcomm.Query{
-		// TODO: add lanResource
 		ClientId:    &appcomm.UUID{Value: clientId},
 		GeoLocation: loc,
-		Tag:         []string{lanResource},
+		Tag:         []string{tag},
 		AppId:       whichApp,
 	})
 	if err != nil {
@@ -109,7 +106,7 @@ func Init(appMgrIP string, appMgrPort string, clientNumber string, where string,
 		serverPort := taskList[i].GetPort()
 		serverConn, err := grpc.Dial(serverIp+":"+serverPort, grpc.WithInsecure())
 		if err != nil {
-			log.Fatalf("Connection to server failed: %v", err)
+			log.Fatalf("Build initial connections to 3 servers failed: %v", err)
 		}
 		serverService := clientToTask.NewRpcClientToTaskClient(serverConn)
 		serverStream, err := serverService.SendRecvImage(context.Background())
@@ -129,7 +126,7 @@ func Init(appMgrIP string, appMgrPort string, clientNumber string, where string,
 	ci := &ClientInfo{
 		// Client info
 		id:       clientId,
-		tag:      lanResource,
+		tag:      tag,
 		location: loc,
 		appId:    whichApp,
 		// Application Manager info
@@ -140,23 +137,16 @@ func Init(appMgrIP string, appMgrPort string, clientNumber string, where string,
 		servers:       servers,
 		// Lock
 		mutexServerUpdate: &sync.Mutex{},
-
-		mutexLocation: &sync.Mutex{},
 	}
 	return ci
 }
 
 func (ci *ClientInfo) QueryListFromAppManager() {
 	/////////////////////////////////////////////////////// (1) Get taskList from Application Manager
-	// get location
-	ci.mutexLocation.Lock()
-	l := ci.location
-	ci.mutexLocation.Unlock()
 
 	list, err := ci.appManagerService.QueryTaskList(context.Background(), &appcomm.Query{
-		// TODO: specify LAN resources
 		ClientId:    &appcomm.UUID{Value: ci.id},
-		GeoLocation: l,
+		GeoLocation: ci.location,
 		Tag:         []string{},
 		AppId:       ci.appId,
 	})
@@ -167,7 +157,7 @@ func (ci *ClientInfo) QueryListFromAppManager() {
 	taskList := list.GetTaskList()
 
 	/////////////////////////////////////////////////////// (2) Construct the list for perfromance test
-	// Lock 2
+
 	ci.mutexServerUpdate.Lock()
 	currentServer_tmp := ci.currentServer // this is unsafe because pointers points to shared memory: It's ok because we only read
 	servers_tmp := ci.servers
@@ -253,7 +243,7 @@ Loop2:
 		t2 := time.Now()
 		// Add valid server into sort list for sorting
 		sortList = append(sortList, Pair{i, t2.Sub(t1)})
-		// DEBUG: fmt.Printf("Performance test for %s: %v \n", testList[i].ip, t2.Sub(t1))
+
 		// First non-nil server in testList is the currently using server
 		// Normal case, current server is just testList[0]. But in case the server faliure happens during performance test
 		if indexOfCurrentServer == -1 {
@@ -273,7 +263,7 @@ Loop2:
 	/////////////////////////////////////////////////////// (4) Construct the new server list for main thread
 
 	var newServers [nMultiConn]*ServerConnection
-	grace, err := time.ParseDuration("25ms")
+	grace, err := time.ParseDuration("20ms")
 	if err != nil {
 		panic(err)
 	}
@@ -311,7 +301,6 @@ Loop2:
 
 	/////////////////////////////////////////////////////// (5) Update the server list in mainthread
 
-	// Lock 3
 	ci.mutexServerUpdate.Lock()
 	ci.servers = newServers
 	ci.currentServer = 0
@@ -362,7 +351,7 @@ func (ci *ClientInfo) faultTolerance() {
 func (ci *ClientInfo) StartStreaming() {
 
 	// Set up video source [camera or video file]
-	videoPath := "data/video/vid.avi"
+	videoPath := "video/vid.avi"
 	video, err := gocv.VideoCaptureFile(videoPath)
 	if err != nil {
 		log.Printf("Error opening video capture file: %s\n", videoPath)
@@ -388,9 +377,6 @@ Loop:
 		if img.Empty() {
 			continue
 		}
-		dims := img.Size()
-		dataSend := img.ToBytes()
-		mattype := int32(img.Type())
 
 		// (2) Get the server for processing this frame
 		// Lock 1
@@ -400,18 +386,19 @@ Loop:
 		ci.mutexServerUpdate.Unlock()
 
 		// (3) Send the frame
+		// Encode this frame
+		dataSend, _ := gocv.IMEncode(".jpg", img)
 		chunks := split(dataSend, 4096)
 		nChunks := len(chunks)
+
 		// Timer for frame latency
 		t1 := time.Now()
+
 		for i := 0; i < nChunks; i++ {
 			// Send the header of this frame
 			if i == 0 {
 				err = stream.Send(&clientToTask.ImageData{
 					Start:    1, // header
-					Width:    int32(dims[0]),
-					Height:   int32(dims[1]),
-					MatType:  mattype,
 					Image:    chunks[i],
 					ClientID: ci.id,
 				})
@@ -445,31 +432,13 @@ Loop:
 		}
 
 		// (4) Receive the result
-		dataRecv := make([]byte, 0)
-		var width int32
-		var height int32
-		var matType int32
-		for {
-			img, err := stream.Recv()
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				// Server fails
-				ci.faultTolerance()
-				continue Loop
-			}
-
-			if img.GetStart() == 1 {
-				width = img.GetWidth()
-				height = img.GetHeight()
-				matType = img.GetMatType()
-			}
-			chunk := img.GetImage()
-			dataRecv = append(dataRecv, chunk...)
-			if img.GetStart() == 0 {
-				break
-			}
+		_, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			ci.faultTolerance()
+			continue Loop
 		}
 
 		t2 := time.Now()
@@ -493,28 +462,23 @@ Loop:
 			captainName = "captain8"
 		}
 
+		// Print out the frame latency
 		log.Printf("%s %v \n", captainName, t2.Sub(t1))
-
-		_, err := gocv.NewMatFromBytes(int(width), int(height), gocv.MatType(matType), dataRecv)
-		if err != nil {
-			log.Fatalf("Error converting bytes to matrix: %v", err)
-		}
 	}
 }
 
 func main() {
 
-	if len(os.Args) < 6 {
-		log.Println("Not enough parameters: [AM IP] [AM port] [client?] [close/far/other] [tag]")
+	if len(os.Args) != 5 {
+		log.Println("Not enough parameters: [AM IP] [AM port] [location: which city] [tag]")
 		return
 	}
 	appMgrIP := os.Args[1]
 	appMgrPort := os.Args[2]
-	clientNumber := os.Args[3]
-	loc := os.Args[4]
-	tag := os.Args[5]
+	loc := os.Args[3]
+	tag := os.Args[4]
 
-	ci := Init(appMgrIP, appMgrPort, clientNumber, loc, tag)
+	ci := Init(appMgrIP, appMgrPort, loc, tag)
 
 	// Periodic query
 	go ci.PeriodicFuncCalls()

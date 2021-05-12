@@ -7,7 +7,7 @@ import "google/protobuf/duration.proto";
 option go_package="github.com/nikhs247/objectDetection/comms/rpc/clientToTask";
 
     service rpcClientToTask {
-        rpc SendRecvImage(stream ImageData) returns (stream ImageData) {}
+        rpc SendRecvImage(stream ImageData) returns (stream ProcessResult) {}
         rpc TestPerformance(TestPerf) returns (PerfData) {}
     }
 
@@ -18,6 +18,11 @@ option go_package="github.com/nikhs247/objectDetection/comms/rpc/clientToTask";
         bytes image = 4;
         int32 start = 5;
         string clientID = 6;
+    }
+
+    message ProcessResult {
+        int32   responseCode = 1;
+        string  result = 2;
     }
 
     message TestPerf {
