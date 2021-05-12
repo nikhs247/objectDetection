@@ -121,7 +121,7 @@ func main() {
 	serverService := clientToTask.NewRpcClientToTaskClient(serverConn)
 	serverStream, err := serverService.SendRecvImage(context.Background())
 	if err != nil {
-		log.Fatalf("Build initial connections to 3 servers failed: %v", err)
+		log.Fatalf("Connection servers failed: %v", err)
 	}
 	ci := &ServerConnection{
 		ip:      ip,

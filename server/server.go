@@ -105,8 +105,6 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecv
 			return nil
 		}
 	}
-	log.Println("One new user terminated")
-	return nil
 }
 
 func (ts *TaskServer) ListenRoutine() {
