@@ -184,7 +184,8 @@ Loop1:
 		serverPort := taskList[i].GetPort()
 		// If new server is an existing server, then skip it
 		for j := 0; j < existingNumberOfServers; j++ {
-			if serverIp == testList[j].ip && serverPort == testList[j].port {
+			// if serverIp == testList[j].ip && serverPort == testList[j].port {
+			if serverIp == testList[j].ip {
 				continue Loop1
 			}
 		}
