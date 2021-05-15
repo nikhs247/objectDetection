@@ -221,13 +221,20 @@ Loop1:
 	// List for sorting
 	sortList := make(PairList, 0)
 
+	currentConnectedNodeProbeFinish := false
 Loop2:
 	for i := 0; i < len(testList); i++ {
+		// Check if the test server is the one currently connected
+		selfCheck := false
+		if i == 0 || !currentConnectedNodeProbeFinish {
+			selfCheck = true
+		}
+
 		// Stores cumulative time for 3 performance test calls for each server
 		t1 := time.Now()
 		for j := 0; j < 3; j++ {
 			_, err := testList[i].service.TestPerformance(context.Background(), &clientToTask.TestPerf{
-				Check:    true,
+				Check:    selfCheck,
 				ClientID: ci.id,
 			})
 			if err != nil {
@@ -241,6 +248,7 @@ Loop2:
 			// TODO: NEED to consider the bandwidth simulation
 			// NOW probing only considers latency + execute dummy data
 		}
+		currentConnectedNodeProbeFinish = true
 		t2 := time.Now()
 		consumed := t2.Sub(t1)
 		// Add valid server into sort list for sorting
