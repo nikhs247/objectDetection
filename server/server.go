@@ -81,7 +81,6 @@ func (ts *TaskServer) TestPerformance(ctx context.Context, testPerf *clientToTas
 		time.Sleep(procTime)
 		log.Printf("%s: Processing time inside busy with diff %v---------------- %v\n", clientID, diff, procTime)
 	} else {
-		t1 := time.Now()
 		img := gocv.IMRead("dummydata/dummyFrame.jpg", gocv.IMReadColor)
 		dims := img.Size()
 		width := dims[0]
@@ -92,6 +91,7 @@ func (ts *TaskServer) TestPerformance(ctx context.Context, testPerf *clientToTas
 		if err != nil {
 			log.Fatalf("Error converting bytes to matrix: %v", err)
 		}
+		t1 := time.Now()
 		// convert image Mat to 300x300 blob that the object detector can analyze
 		blob := gocv.BlobFromImage(mat, ts.appInfo.ratio, image.Pt(300, 300), ts.appInfo.mean, ts.appInfo.swapRGB, false)
 		ts.mutexAlgo.Lock()
