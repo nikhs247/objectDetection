@@ -477,8 +477,7 @@ Loop:
 
 		// Print out the frame latency
 		// log.Printf("%s %v \n", captainName, t2.Sub(t1))
-		fmt.Printf("* %s ", whichIp)
-		fmt.Println(t2.Sub(t1))
+		fmt.Printf("* %s %v \n", whichIp, t2.Sub(t1))
 	}
 }
 
