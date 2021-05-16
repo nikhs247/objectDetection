@@ -249,6 +249,11 @@ Loop2:
 			// NOW probing only considers latency + execute dummy data
 		}
 		currentConnectedNodeProbeFinish = true
+
+		// MIST client
+		if testList[i].ip == "128.101.118.101" {
+			time.Sleep(time.Duration(rand.Float32()*3+10) * time.Millisecond * 3)
+		}
 		t2 := time.Now()
 		consumed := t2.Sub(t1)
 		// Add valid server into sort list for sorting
@@ -454,6 +459,12 @@ Loop:
 			continue Loop
 		}
 
+		// ADD MIST node to MIST server Latency
+
+		if whichIp == "128.101.118.101" {
+			// time.Sleep(13 * time.Millisecond)
+			time.Sleep(time.Duration(rand.Float32()*3+10) * time.Millisecond)
+		}
 		t2 := time.Now()
 
 		// captainName := "wrong address"
