@@ -255,7 +255,7 @@ Loop2:
 		sortList = append(sortList, Pair{i, consumed})
 
 		// Print out the performance probing result
-		log.Printf(" -------- Probing %s:%s %v\n", testList[i].ip, testList[i].port, consumed)
+		fmt.Printf("? -------- Probing %s:%s %v\n", testList[i].ip, testList[i].port, consumed)
 
 		// First non-nil server in testList is the currently using server
 		// Normal case, current server is just testList[0]. But in case the server faliure happens during performance test
@@ -358,7 +358,7 @@ func (ci *ClientInfo) faultTolerance() {
 		os.Exit(0)
 	}
 	ci.mutexServerUpdate.Unlock()
-	log.Println("Server just failed: switch to a backup server!!")
+	fmt.Println("! Server just failed: switch to a backup server!!")
 }
 
 func (ci *ClientInfo) StartStreaming() {
@@ -477,7 +477,8 @@ Loop:
 
 		// Print out the frame latency
 		// log.Printf("%s %v \n", captainName, t2.Sub(t1))
-		log.Printf("%s %v \n", whichIp, t2.Sub(t1))
+		fmt.Printf("* %s ", whichIp)
+		fmt.Println(t2.Sub(t1))
 	}
 }
 
