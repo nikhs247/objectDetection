@@ -122,6 +122,9 @@ func Init(appMgrIP string, appMgrPort string, where string, tag string) *ClientI
 		}
 	}
 
+	// TODO
+	// First call Join_Request(server_state) to notify a first-time join
+
 	// (5) Construct the ClientInfo
 	ci := &ClientInfo{
 		// Client info
@@ -232,6 +235,10 @@ Loop2:
 
 		// Stores cumulative time for 3 performance test calls for each server
 		t1 := time.Now()
+
+		// TODO
+		// Here need RTT_Request() and Probe_Request() to get the what-if performance
+
 		for j := 0; j < 3; j++ {
 			_, err := testList[i].service.TestPerformance(context.Background(), &clientToTask.TestPerf{
 				Check:    selfCheck,
@@ -287,6 +294,14 @@ Loop2:
 	if sortList[0].Value+grace < currentServerPerformance {
 		// Connection switch is required ==> just use the first 3 servers in sort list
 		connectionSwitch = true
+
+		// TODO
+		// Here client needs to send Join_Request(state) to server for approval
+		// If not approved, then just return error
+
+		// TODO
+		// Send End_process() to the current server to notify the leaving
+
 		for i := 0; i < nMultiConn; i++ {
 			newServers[i] = testList[sortList[i].Index]
 		}
@@ -343,6 +358,11 @@ func (ci *ClientInfo) PeriodicFuncCalls() {
 		case <-queryListTicker.C:
 			rand.Seed(time.Now().UTC().UnixNano())
 			time.Sleep(time.Duration(rand.Float32()*2) * (time.Second))
+
+			// TODO
+			// This call may fail if Join_Request() is failed
+			// In this case, just re-call this function
+
 			ci.QueryListFromAppManager()
 		}
 	}
@@ -358,6 +378,10 @@ func (ci *ClientInfo) faultTolerance() {
 		os.Exit(0)
 	}
 	ci.mutexServerUpdate.Unlock()
+
+	// TODO
+	// Notify the next server that I am coming
+
 	fmt.Println("! Server just failed: switch to a backup server!!")
 }
 

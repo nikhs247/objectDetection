@@ -8,7 +8,6 @@ import (
 	"io"
 	"log"
 	"net"
-	"sync"
 	"time"
 
 	"github.com/nikhs247/objectDetection/comms/rpc/clientToTask"
@@ -17,32 +16,6 @@ import (
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
-
-type ApplicationInfo struct {
-	net     gocv.Net
-	ratio   float64
-	mean    gocv.Scalar
-	swapRGB bool
-}
-
-type TaskServer struct {
-	clientToTask.UnimplementedRpcClientToTaskServer
-
-	IP         string
-	ListenPort string
-	// Real processing time: for users who probe the currently connected server
-	updateTime     time.Time
-	processingTime time.Duration
-	mutexProcTime  *sync.Mutex
-	// Dummy processing time: for users who probe the alternative servers
-	dummyUpdateTime     time.Time
-	dummyProcessingTime time.Duration
-	mutexDummyProcTime  *sync.Mutex
-
-	// Application specific
-	appInfo   ApplicationInfo
-	mutexAlgo *sync.Mutex
-}
 
 func (ts *TaskServer) TestPerformance(ctx context.Context, testPerf *clientToTask.TestPerf) (*clientToTask.PerfData, error) {
 	clientID := testPerf.GetClientID()

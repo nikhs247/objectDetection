@@ -1,10 +1,12 @@
 module github.com/nikhs247/objectDetection/server
 
-go 1.15
+go 1.13
 
 require (
-	github.com/nikhs247/objectDetection/comms v0.0.0-20210512175859-b14f48536de9 // indirect
-	gocv.io/x/gocv v0.26.0
-	google.golang.org/grpc v1.35.0
-	google.golang.org/protobuf v1.25.0
+	github.com/nikhs247/objectDetection/server/objectdetectionserver v0.0.0-00010101000000-000000000000
+	gocv.io/x/gocv v0.28.0
 )
+
+replace github.com/nikhs247/objectDetection/server/objectdetectionserver => /Users/lh/Desktop/go/src/github.com/nikhs247/objectDetection/server/objectdetectionserver
+
+replace github.com/nikhs247/objectDetection/comms => /Users/lh/Desktop/go/src/github.com/nikhs247/objectDetection/comms
