@@ -7,8 +7,38 @@ import "google/protobuf/duration.proto";
 option go_package="github.com/nikhs247/objectDetection/comms/rpc/clientToTask";
 
     service rpcClientToTask {
-        rpc SendRecvImage(stream ImageData) returns (stream ProcessResult) {}
+        rpc RTT_Request(TestPerf) returns (PerfData) {}
+        rpc Probe_Request(TestPerf) returns (ProbeResult) {}
+        rpc Join_Request(Decision) returns (JoinResult) {}
+        rpc Unexpected_client_join(EmptyMessage) returns (EmptyMessage) {}
+        rpc End_process(EmptyMessage) returns (EmptyMessage) {}
         rpc TestPerformance(TestPerf) returns (PerfData) {}
+        rpc SendRecvImage(stream ImageData) returns (stream ProcessResult) {}
+    }
+
+    message TestPerf {
+        string clientID = 2;
+    }
+
+    message PerfData {
+        google.protobuf.Duration procTime  = 1;
+    }
+
+    message ProbeResult {
+        int64 stateNumber = 1;
+        google.protobuf.Duration whatIfTime  = 2;
+    }
+
+    message Decision {
+        int64 lastSate = 1;
+    }
+
+    message JoinResult {
+        bool success = 1;
+    }
+
+    message EmptyMessage {
+
     }
 
     message ImageData {   
@@ -23,13 +53,4 @@ option go_package="github.com/nikhs247/objectDetection/comms/rpc/clientToTask";
     message ProcessResult {
         int32   responseCode = 1;
         string  result = 2;
-    }
-
-    message TestPerf {
-        bool check = 1;
-        string clientID = 2;
-    }
-
-    message PerfData {
-        google.protobuf.Duration procTime  = 1;
     }

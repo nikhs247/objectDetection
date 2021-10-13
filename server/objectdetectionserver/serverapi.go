@@ -2,100 +2,91 @@ package objectdetectionserver
 
 import (
 	"context"
-	"fmt"
-	"image"
-	"image/color"
 	"io"
 	"log"
-	"net"
 	"time"
 
 	"github.com/nikhs247/objectDetection/comms/rpc/clientToTask"
 	"gocv.io/x/gocv"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
-func (ts *TaskServer) TestPerformance(ctx context.Context, testPerf *clientToTask.TestPerf) (*clientToTask.PerfData, error) {
-	clientID := testPerf.GetClientID()
+func (ts *TaskServer) RTT_Request(ctx context.Context, testPerf *clientToTask.TestPerf) (*clientToTask.PerfData, error) {
+	return &clientToTask.PerfData{
+		ProcTime: nil,
+	}, nil
+}
 
-	// First check the type of this probing request
-	var diff time.Duration
-	var procTime time.Duration
-	// true = self check self, false = check others
-	checkSelf := testPerf.Check
-	// (1) user probing its own connected server: check real processing time
-	if checkSelf {
-		ts.mutexProcTime.Lock()
-		procTime = ts.processingTime
-		diff = time.Since(ts.updateTime)
-		ts.mutexProcTime.Unlock()
-		// self check self means the server must be already running: just get proctime and sleep
-		time.Sleep(procTime)
-		log.Printf("%s: SELD check SELF Processing time inside busy with diff %v -------- %v\n", clientID, diff, procTime)
-		return &clientToTask.PerfData{
-			ProcTime: durationpb.New(procTime),
+func (ts *TaskServer) Probe_Request(ctx context.Context, testPerf *clientToTask.TestPerf) (*clientToTask.ProbeResult, error) {
+	// First check if this is the self-probe
+	ts.mutexProcTime.Lock()
+	val, ok := ts.clients[testPerf.ClientID]
+	ts.mutexProcTime.Unlock()
+	if ok {
+		thresholdDuration, err := time.ParseDuration("300ms")
+		if err != nil {
+			panic(err)
+		}
+		// If this client is currently processing on this node: just return its current processing time
+		if time.Since(val.updateTime) < thresholdDuration {
+			return &clientToTask.ProbeResult{
+				StateNumber: -1, // -1 represents self-check: StateNumber is irrelavent
+				WhatIfTime:  durationpb.New(val.processingTime),
+			}, nil
+		}
+	}
+	// Check the "what-if" time
+	ts.mutexState.Lock()
+	stateNumber := ts.stateNumber
+	whatIfTime := ts.whatIfTime
+	ts.mutexState.Unlock()
+	return &clientToTask.ProbeResult{
+		StateNumber: stateNumber,
+		WhatIfTime:  durationpb.New(whatIfTime),
+	}, nil
+}
+
+func (ts *TaskServer) Join_Request(ctx context.Context, decision *clientToTask.Decision) (*clientToTask.JoinResult, error) {
+	ts.mutexState.Lock()
+	// Allow the client to join if this is an initial request or
+	// The state hasn't changed since the client's last probe
+	if decision.LastSate == ts.stateNumber {
+		// After this client actually joins, invoke dummy workload to predict what-if processing time
+		go ts.PerformDummyWorkloadWithDelay(100)
+		return &clientToTask.JoinResult{
+			Success: true,
+		}, nil
+	} else {
+		ts.mutexState.Unlock()
+		return &clientToTask.JoinResult{
+			Success: false,
 		}, nil
 	}
+}
 
-	// (2) user probing an alternative server check dummy processing time
-	ts.mutexDummyProcTime.Lock()
-	procTime = ts.dummyProcessingTime
-	diff = time.Since(ts.dummyUpdateTime)
-	ts.mutexDummyProcTime.Unlock()
+func (ts *TaskServer) Unexpected_client_join(ctx context.Context, emptyMessage *clientToTask.EmptyMessage) (*clientToTask.EmptyMessage, error) {
+	// This is invoked by client when an edge node fails
+	// Return this call ASAP since the clinet waits there to continue its service after the faliure switch
+	// Set a delay here to make sure that this server starts to serve the unexpected client
+	go ts.PerformDummyWorkload(30, true)
+	return &clientToTask.EmptyMessage{}, nil
+}
 
-	// threashold for false scenario
-	thresholdDuration, err := time.ParseDuration("300ms")
-	if err != nil {
-		panic(err)
-	}
-	if diff < thresholdDuration {
-		time.Sleep(procTime)
-		log.Printf("%s: Processing time inside busy with diff %v---------------- %v\n", clientID, diff, procTime)
-	} else {
-		img := gocv.IMRead("dummydata/dummyFrame.jpg", gocv.IMReadColor)
-		dims := img.Size()
-		width := dims[0]
-		height := dims[1]
-		data := img.ToBytes()
-		matType := img.Type()
-		mat, err := gocv.NewMatFromBytes(int(width), int(height), gocv.MatType(matType), data)
-		if err != nil {
-			log.Fatalf("Error converting bytes to matrix: %v", err)
-		}
-		t1 := time.Now()
-		// convert image Mat to 300x300 blob that the object detector can analyze
-		blob := gocv.BlobFromImage(mat, ts.appInfo.ratio, image.Pt(300, 300), ts.appInfo.mean, ts.appInfo.swapRGB, false)
-		ts.mutexAlgo.Lock()
-		// feed the blob into the detector
-		ts.appInfo.net.SetInput(blob, "")
-		// run a forward pass thru the network
-		prob := ts.appInfo.net.Forward("")
-		ts.mutexAlgo.Unlock()
-		performDetection(&mat, prob)
-		prob.Close()
-		blob.Close()
-		procTime = time.Since(t1)
-
-		ts.mutexDummyProcTime.Lock()
-		ts.dummyUpdateTime = time.Now()
-		ts.dummyProcessingTime = procTime
-		ts.mutexDummyProcTime.Unlock()
-		log.Printf("%s: Processing time inside idle with diff %v ---------------- %v\n", clientID, diff, procTime)
-	}
-
-	return &clientToTask.PerfData{
-		ProcTime: durationpb.New(procTime),
-	}, nil
+func (ts *TaskServer) End_process(ctx context.Context, emptyMessage *clientToTask.EmptyMessage) (*clientToTask.EmptyMessage, error) {
+	// This is invoked by client when a better node is found and it switches to that node
+	// Return this call ASAP since the clinet waits there to continue its service after the switch decision
+	// Set a delay here to make sure that this client actually leaves
+	go ts.PerformDummyWorkload(30, false)
+	return &clientToTask.EmptyMessage{}, nil
 }
 
 func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecvImageServer) error {
 
+	var clientID string
 	for {
 		data := make([]byte, 0)
-		var clientID string
 
+		// Read one frame
 		for {
 			img, err := stream.Recv()
 			if err == io.EOF {
@@ -122,32 +113,18 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecv
 		mat, _ := gocv.IMDecode(data, -1)
 
 		t1 := time.Now()
-		// convert image Mat to 300x300 blob that the object detector can analyze
-		blob := gocv.BlobFromImage(mat, ts.appInfo.ratio, image.Pt(300, 300), ts.appInfo.mean, ts.appInfo.swapRGB, false)
+		ts.PerformFrame(mat)
+		procTime := time.Since(t1)
 
-		ts.mutexAlgo.Lock()
-		// feed the blob into the detector
-		ts.appInfo.net.SetInput(blob, "")
-
-		// run a forward pass thru the network
-		prob := ts.appInfo.net.Forward("")
-		ts.mutexAlgo.Unlock()
-
-		performDetection(&mat, prob)
-
-		prob.Close()
-		blob.Close()
-
-		t2 := time.Since(t1)
-
-		// Update the real processing record
+		// TUpdate the clients map, update time and processing time into the client record
 		ts.mutexProcTime.Lock()
-		ts.updateTime = time.Now()
-		ts.processingTime = t2
-		pTime := ts.processingTime
+		ts.clients[clientID] = ClientState{
+			updateTime:     time.Now(),
+			processingTime: procTime,
+		}
 		ts.mutexProcTime.Unlock()
 
-		log.Printf("%s:Processing time - %v\n", clientID, pTime)
+		log.Printf("%s:Processing time - %v\n", clientID, procTime)
 
 		// Send back the detection result
 		err := stream.Send(&clientToTask.ProcessResult{
@@ -157,36 +134,6 @@ func (ts *TaskServer) SendRecvImage(stream clientToTask.RpcClientToTask_SendRecv
 		if err != nil {
 			log.Printf("Connection closed by client")
 			return nil
-		}
-	}
-}
-
-func (ts *TaskServer) ListenRoutine() {
-	listen, err := net.Listen("tcp", fmt.Sprintf("%s:%s", ts.IP, ts.ListenPort))
-	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
-	}
-
-	grpcServer := grpc.NewServer()
-	clientToTask.RegisterRpcClientToTaskServer(grpcServer, ts)
-	reflection.Register(grpcServer)
-	grpcServer.Serve(listen)
-}
-
-// performDetection analyzes the results from the detector network,
-// which produces an output blob with a shape 1x1xNx7
-// where N is the number of detections, and each detection
-// is a vector of float values
-// [batchId, classId, confidence, left, top, right, bottom]
-func performDetection(frame *gocv.Mat, results gocv.Mat) {
-	for i := 0; i < results.Total(); i += 7 {
-		confidence := results.GetFloatAt(0, i+2)
-		if confidence > 0.5 {
-			left := int(results.GetFloatAt(0, i+3) * float32(frame.Cols()))
-			top := int(results.GetFloatAt(0, i+4) * float32(frame.Rows()))
-			right := int(results.GetFloatAt(0, i+5) * float32(frame.Cols()))
-			bottom := int(results.GetFloatAt(0, i+6) * float32(frame.Rows()))
-			gocv.Rectangle(frame, image.Rect(left, top, right, bottom), color.RGBA{0, 255, 0, 0}, 2)
 		}
 	}
 }
