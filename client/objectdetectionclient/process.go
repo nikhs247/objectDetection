@@ -107,6 +107,11 @@ Loop:
 		fmt.Printf("* %s %v \n", whichIp, t2.Sub(t1))
 	}
 
+	// Processing finished: let server know I'm leaving
+	ci.mutexServerUpdate.Lock()
+	currentService := ci.servers[ci.currentServer].service
+	ci.mutexServerUpdate.Unlock()
+	currentService.EndProcess(context.Background(), &clientToTask.EmptyMessage{})
 }
 
 func (ci *ClientInfo) faultTolerance() {

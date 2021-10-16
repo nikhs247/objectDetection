@@ -246,7 +246,7 @@ func (ci *ClientInfo) constructSortList(testList []*ServerConnection, garbageLis
 	var currentlyUseingServerPerformance time.Duration
 
 	for i := 0; i < len(testList); i++ {
-		// Perform the rtt test
+		// (1) Perform the rtt test
 		t1 := time.Now()
 		_, err := testList[i].service.RTT_Request(context.Background(), &clientToTask.TestPerf{
 			ClientID: ci.id,
@@ -262,7 +262,7 @@ func (ci *ClientInfo) constructSortList(testList []*ServerConnection, garbageLis
 		}
 		rtt_time := time.Since(t1)
 
-		// Perform the processing test
+		// (2) Perform the processing test
 		probeResult, err := testList[i].service.Probe_Request(context.Background(), &clientToTask.TestPerf{
 			ClientID: ci.id,
 		})
@@ -282,6 +282,8 @@ func (ci *ClientInfo) constructSortList(testList []*ServerConnection, garbageLis
 			currentlyUseingServerPerformance = performance
 		}
 		sortList = append(sortList, Pair{i, performance})
+		// DEBUG
+		log.Printf("Probing %d: RTT [%v]; Process [%v]; Total [%v]", i, rtt_time, process_time, performance)
 	}
 	// Compare the performance of these servers
 	sort.Sort(sortList)

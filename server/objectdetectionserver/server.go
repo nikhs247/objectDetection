@@ -91,6 +91,7 @@ func Run(ip, listenPort string) {
 	ts.PerformFrame(ts.dummyWorkload)
 	t3 := time.Now()
 	ts.whatIfTime = (t2.Sub(t1) + t3.Sub(t2)) / 2
+	log.Printf("Profiling processing time: %v\n", ts.whatIfTime)
 
 	// Start the gRPC server
 	listen, err := net.Listen("tcp", fmt.Sprintf("%s:%s", ts.IP, ts.ListenPort))
