@@ -1,6 +1,8 @@
 package objectdetectionclient
 
 import (
+	"errors"
+	"fmt"
 	"math/rand"
 	"time"
 
@@ -20,6 +22,9 @@ type ServerConnection struct {
 func (ci *ClientInfo) DiscoverAndProbing() error {
 	// (1) Query available edge nodes from Application Manager
 	taskList := ci.queryAppManager()
+	if len(taskList) == 0 {
+		return errors.New("no available edge node")
+	}
 
 	// (2) Get currently-using server and candidate list
 	ci.mutexServerUpdate.Lock()
@@ -27,33 +32,31 @@ func (ci *ClientInfo) DiscoverAndProbing() error {
 	servers_tmp := ci.servers
 	ci.mutexServerUpdate.Unlock()
 
-	// (3) Construct the test list for performance probing
-	var testList []*ServerConnection
+	// (3) Construct the candidate list for main thread
+	var newServers []*ServerConnection
 	var garbageList []*ServerConnection
+	var err error
 	if currentServer_tmp == -1 {
 		// This is the initial probing call
-		testList = constructTestListInit(taskList)
+		newServers, garbageList, err = ci.getCandidateListInit(taskList)
+		if err != nil {
+			return err
+		}
 	} else {
 		// This is the periodic probing call
-		testList, garbageList = constructTestList(taskList, currentServer_tmp, servers_tmp)
+		newServers, garbageList, err = ci.getCandidateList(taskList, currentServer_tmp, servers_tmp)
+		if err != nil {
+			return err
+		}
 	}
 
-	// (4) Probe the servers in the test list and get a sorted server list
-	sortList, testList, garbageList, currentlyUseingServerAlive, currentlyUseingServerPerformance := ci.constructSortList(testList, garbageList)
-
-	// (5) Construct the new candidate list
-	newServers, garbageList, err := constructNewCandidateList(sortList, testList, garbageList, currentlyUseingServerAlive, currentlyUseingServerPerformance, currentServer_tmp)
-	if err != nil {
-		return err
-	}
-
-	// (6) Update the candidate list for main thread
+	// (4) Update the candidate list for main thread
 	ci.mutexServerUpdate.Lock()
 	ci.servers = newServers
 	ci.currentServer = 0
 	ci.mutexServerUpdate.Unlock()
 
-	// (7) Clean up the garbage pool
+	// (5) Clean up the garbage pool
 	go cleanUp(garbageList)
 	return nil
 }
@@ -66,7 +69,9 @@ func (ci *ClientInfo) PeriodicDiscoverAndProbing() {
 		// Perform the probing until it successes
 		for {
 			err := ci.DiscoverAndProbing()
-			if err == nil {
+			if err != nil {
+				fmt.Println(err.Error())
+			} else {
 				break
 			}
 		}

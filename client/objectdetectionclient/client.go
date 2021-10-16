@@ -17,7 +17,14 @@ func Run(appMgrIP string, appMgrPort string, where string, tag string) {
 
 	// Probing nearby available edge servers and construct candidate lsit
 	// After this step: we have the initial edge node candidate list and ready for processing
-	ci.DiscoverAndProbing()
+	for {
+		err := ci.DiscoverAndProbing()
+		if err != nil {
+			fmt.Println(err.Error())
+		} else {
+			break
+		}
+	}
 
 	// Start an asynchronous routine to periodically update the candidate list
 	go ci.PeriodicDiscoverAndProbing()

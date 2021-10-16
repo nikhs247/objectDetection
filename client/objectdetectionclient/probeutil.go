@@ -27,10 +27,32 @@ func (ci *ClientInfo) queryAppManager() []*appcomm.Task {
 	return list.GetTaskList()
 }
 
-func constructTestListInit(taskList []*appcomm.Task) []*ServerConnection {
-	testList := make([]*ServerConnection, 0)
+// For initial probing request
 
+func (ci *ClientInfo) getCandidateListInit(taskList []*appcomm.Task) ([]*ServerConnection, []*ServerConnection, error) {
+	// Construct the test list for performance probing
+	testList := constructTestListInit(taskList)
+	if len(testList) == 0 {
+		return nil, nil, errors.New("testList length 0")
+	}
+
+	// Perform the probing and sort the candidates
+	sortList, testList, garbageList := ci.constructSortListInit(testList)
+	if len(sortList) == 0 {
+		return nil, nil, errors.New("sortList length 0")
+	}
+
+	// Construct the candidate list for main thread
+	newServers, err := constructNewCandidateListInit(sortList, testList)
+	if err != nil {
+		return nil, nil, err
+	}
+	return newServers, garbageList, nil
+}
+
+func constructTestListInit(taskList []*appcomm.Task) []*ServerConnection {
 	// Simply establish connections to all nodes from appManager query
+	testList := make([]*ServerConnection, 0)
 	for i := 0; i < len(taskList); i++ {
 		serverIp := taskList[i].GetIp()
 		serverPort := taskList[i].GetPort()
@@ -60,34 +82,120 @@ func constructTestListInit(taskList []*appcomm.Task) []*ServerConnection {
 	return testList
 }
 
-func constructTestList(taskList []*appcomm.Task, currentServer_tmp int, servers_tmp []*ServerConnection) ([]*ServerConnection, []*ServerConnection) {
+func (ci *ClientInfo) constructSortListInit(testList []*ServerConnection) (PairList, []*ServerConnection, []*ServerConnection) {
+	// Probe the servers in test list and sort the list based on the performance
+	sortList := make(PairList, 0)
+	garbageList := make([]*ServerConnection, 0)
+
+	for i := 0; i < len(testList); i++ {
+		// (1) Perform the rtt test
+		t1 := time.Now()
+		_, err := testList[i].service.RTT_Request(context.Background(), &clientToTask.TestPerf{
+			ClientID: ci.id,
+		})
+		if err != nil {
+			// This error rarely happens -> Server just fails during the probing process ->remove it
+			garbageList = append(garbageList, testList[i])
+			testList[i] = nil
+			continue
+		}
+		rtt_time := time.Since(t1)
+
+		// (2) Perform the processing test
+		probeResult, err := testList[i].service.Probe_Request(context.Background(), &clientToTask.TestPerf{
+			ClientID: ci.id,
+		})
+		if err != nil {
+			// This error rarely happens -> Server just fails during the probing process ->remove it
+			garbageList = append(garbageList, testList[i])
+			testList[i] = nil
+			continue
+		}
+		testList[i].state = probeResult.StateNumber // used for synchronization purpose
+		process_time := probeResult.WhatIfTime.AsDuration()
+
+		// Calculate the performance based on probing
+		performance := rtt_time + process_time
+		// Add the performance of this probing server into the sort list
+		sortList = append(sortList, Pair{i, performance})
+	}
+	// Compare the performance of these servers
+	sort.Sort(sortList)
+	return sortList, testList, garbageList
+}
+
+func constructNewCandidateListInit(sortList PairList, testList []*ServerConnection) ([]*ServerConnection, error) {
+	// Based on the sorted list of servers, construct the candidate server list for main thread
+	newServers := make([]*ServerConnection, 0)
+	for i := 0; i < len(sortList); i++ { // The length must be <= nMultiConn
+		newServers = append(newServers, testList[sortList[i].Index])
+	}
+	// Ask for join
+	joinResult, err := newServers[0].service.Join_Request(context.Background(), &clientToTask.Decision{
+		LastSate: newServers[0].state,
+	})
+	if err != nil {
+		// Rarely happen: for simplicity just return failure
+		return nil, errors.New("probing fails")
+	}
+	if !joinResult.Success {
+		// State has changes on the server side from the last timestamp: reject the join request
+		return nil, errors.New("join request rejected")
+	}
+	return newServers, nil
+}
+
+// For periodic probing request
+
+func (ci *ClientInfo) getCandidateList(taskList []*appcomm.Task, currentServer int, servers []*ServerConnection) ([]*ServerConnection, []*ServerConnection, error) {
+	// Construct the test list for performance probing
+	testList, garbageList := constructTestList(taskList, currentServer, servers)
+	if len(testList) == 0 {
+		return nil, nil, errors.New("testList length 0")
+	}
+
+	// Perform the probing and sort the candidates
+	sortList, testList, garbageList, currentlyUseingServerAlive, currentlyUseingServerPerformance := ci.constructSortList(testList, garbageList)
+	if len(sortList) == 0 {
+		return nil, nil, errors.New("sortList length 0")
+	}
+
+	// Construct the candidate list for main thread
+	newServers, garbageList, err := constructNewCandidateList(sortList, testList, garbageList, currentlyUseingServerAlive, currentlyUseingServerPerformance)
+	if err != nil {
+		return nil, nil, err
+	}
+	return newServers, garbageList, nil
+}
+
+func constructTestList(taskList []*appcomm.Task, currentServer int, servers []*ServerConnection) ([]*ServerConnection, []*ServerConnection) {
 	testList := make([]*ServerConnection, 0)
 	garbageList := make([]*ServerConnection, 0)
 
 	// Add failed servers into garbage list
-	for i := 0; i < currentServer_tmp; i++ {
-		garbageList = append(garbageList, servers_tmp[i])
+	for i := 0; i < currentServer; i++ {
+		garbageList = append(garbageList, servers[i])
 	}
 
 	// Add the currently-using server (real traffic, not backup servers) into the test list
 	// Always include currently-using server in the probing list (to avoid unnecessary connection switch)
 	// Note that testList[0] will always be the currently using server in main thread
 	// It's ok testList[0] fails during the probing process
-	testList = append(testList, servers_tmp[currentServer_tmp])
+	testList = append(testList, servers[currentServer])
 
 	// Handle the rest of old server list: discard or keep it? (if overlap with the new server list)
 Loop1:
-	for i := currentServer_tmp + 1; i < len(servers_tmp); i++ {
-		serverIp := servers_tmp[i].ip
-		serverPort := servers_tmp[i].port
+	for i := currentServer + 1; i < len(servers); i++ {
+		serverIp := servers[i].ip
+		serverPort := servers[i].port
 		for j := 0; j < len(taskList); j++ {
 			if serverIp == taskList[j].GetIp() && serverPort == taskList[j].GetPort() {
-				testList = append(testList, servers_tmp[i])
+				testList = append(testList, servers[i])
 				continue Loop1
 			}
 		}
 		// This old server doesn't overlap with any new server in the list
-		garbageList = append(garbageList, servers_tmp[i])
+		garbageList = append(garbageList, servers[i])
 	}
 
 Loop2:
@@ -96,15 +204,9 @@ Loop2:
 		serverIp := taskList[i].GetIp()
 		serverPort := taskList[i].GetPort()
 
-		// If this one is the currently-using server itself -> continue it
-		// We already handled the current server above
-		if serverIp == testList[0].ip && serverPort == testList[0].port {
-			continue
-		}
-
 		// Test if this server exists in the old server list
-		for j := currentServer_tmp + 1; j < len(servers_tmp); j++ {
-			if serverIp == servers_tmp[j].ip && serverPort == servers_tmp[j].port {
+		for j := currentServer; j < len(servers); j++ {
+			if serverIp == servers[j].ip && serverPort == servers[j].port {
 				// We already append this server in Loop1: just skip it here
 				continue Loop2
 			}
@@ -187,10 +289,10 @@ func (ci *ClientInfo) constructSortList(testList []*ServerConnection, garbageLis
 	return sortList, testList, garbageList, currentlyUseingServerAlive, currentlyUseingServerPerformance
 }
 
-func constructNewCandidateList(sortList PairList, testList []*ServerConnection, garbageList []*ServerConnection, currentlyUseingServerAlive bool, currentlyUseingServerPerformance time.Duration, currentServer_tmp int) ([]*ServerConnection, []*ServerConnection, error) {
+func constructNewCandidateList(sortList PairList, testList []*ServerConnection, garbageList []*ServerConnection, currentlyUseingServerAlive bool, currentlyUseingServerPerformance time.Duration) ([]*ServerConnection, []*ServerConnection, error) {
 	newServers := make([]*ServerConnection, 0)
 
-	if currentlyUseingServerAlive && currentServer_tmp != -1 {
+	if currentlyUseingServerAlive {
 		if len(sortList) >= 2 { // Need to compare the performance for connection switch
 			grace, err := time.ParseDuration("20ms")
 			if err != nil {
@@ -254,6 +356,8 @@ func constructNewCandidateList(sortList PairList, testList []*ServerConnection, 
 	return newServers, garbageList, nil
 }
 
+// Close opened connections (*go can clear them implicitly if we don't handle this)
+
 func cleanUp(garbageList []*ServerConnection) {
 	// Close the unused file descriptors explicitely
 	// Apply a short delay before closing conns to avoid the following case (rarely happen):
@@ -266,6 +370,8 @@ func cleanUp(garbageList []*ServerConnection) {
 		// the rest will be cleaned by Garbage Collector
 	}
 }
+
+// Helpers
 
 type Pair struct {
 	Index int
