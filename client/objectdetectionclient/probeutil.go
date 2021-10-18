@@ -161,7 +161,7 @@ func (ci *ClientInfo) getCandidateList(taskList []*appcomm.Task, currentServer i
 	}
 
 	// Construct the candidate list for main thread
-	newServers, garbageList, err := constructNewCandidateList(sortList, testList, garbageList, currentlyUseingServerAlive, currentlyUseingServerPerformance)
+	newServers, garbageList, err := ci.constructNewCandidateList(sortList, testList, garbageList, currentlyUseingServerAlive, currentlyUseingServerPerformance)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -291,7 +291,7 @@ func (ci *ClientInfo) constructSortList(testList []*ServerConnection, garbageLis
 	return sortList, testList, garbageList, currentlyUseingServerAlive, currentlyUseingServerPerformance
 }
 
-func constructNewCandidateList(sortList PairList, testList []*ServerConnection, garbageList []*ServerConnection, currentlyUseingServerAlive bool, currentlyUseingServerPerformance time.Duration) ([]*ServerConnection, []*ServerConnection, error) {
+func (ci *ClientInfo) constructNewCandidateList(sortList PairList, testList []*ServerConnection, garbageList []*ServerConnection, currentlyUseingServerAlive bool, currentlyUseingServerPerformance time.Duration) ([]*ServerConnection, []*ServerConnection, error) {
 	newServers := make([]*ServerConnection, 0)
 
 	if currentlyUseingServerAlive {
@@ -303,7 +303,7 @@ func constructNewCandidateList(sortList PairList, testList []*ServerConnection, 
 			if sortList[0].Value+grace < currentlyUseingServerPerformance {
 				// Connection switch
 				for i := 0; i < len(sortList); i++ {
-					if len(newServers) >= nMultiConn {
+					if len(newServers) >= ci.topN {
 						// len(sortList) could have 1 more element than nMultiConn
 						garbageList = append(garbageList, testList[sortList[i].Index])
 						break
@@ -326,7 +326,7 @@ func constructNewCandidateList(sortList PairList, testList []*ServerConnection, 
 				// No connection switch
 				newServers = append(newServers, testList[0])
 				for i := 0; i < len(sortList); i++ {
-					if len(newServers) >= nMultiConn {
+					if len(newServers) >= ci.topN {
 						// len(sortList) could have 1 more element than nMultiConn
 						garbageList = append(garbageList, testList[sortList[i].Index])
 						break

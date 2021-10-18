@@ -17,6 +17,7 @@ type ClientInfo struct {
 	tag      string // used to specify LAN resources
 	location *appcomm.Location
 	appId    *appcomm.UUID
+	topN     int
 
 	// Application manager info
 	appManagerConn    *grpc.ClientConn // keep this pointer so that we can close it at the end
@@ -31,7 +32,7 @@ type ClientInfo struct {
 	mutexServerUpdate *sync.Mutex
 }
 
-func Init(appMgrIP string, appMgrPort string, where *appcomm.Location, tag string) *ClientInfo {
+func Init(appMgrIP string, appMgrPort string, where *appcomm.Location, tag string, n int) *ClientInfo {
 
 	// (1) Set up client info
 	clientId := guuid.New().String()
@@ -56,6 +57,7 @@ func Init(appMgrIP string, appMgrPort string, where *appcomm.Location, tag strin
 		tag:      tag,
 		location: where,
 		appId:    whichApp,
+		topN:     n,
 		// Application Manager info
 		appManagerConn:    appConn,
 		appManagerService: appService,

@@ -11,9 +11,7 @@ import (
 	"github.com/nikhs247/objectDetection/comms/rpc/clientToTask"
 )
 
-const nMultiConn = 3
-
-func Run(appMgrIP string, appMgrPort string, where string, tag string) {
+func Run(appMgrIP string, appMgrPort string, where string, tag string, topN int) {
 
 	// Capture the signal
 	signalChan := make(chan os.Signal, 1)
@@ -22,7 +20,7 @@ func Run(appMgrIP string, appMgrPort string, where string, tag string) {
 	loc := ConvertLocation(where)
 
 	// Initialize the client
-	ci := Init(appMgrIP, appMgrPort, loc, tag)
+	ci := Init(appMgrIP, appMgrPort, loc, tag, topN)
 
 	// Probing nearby available edge servers and construct candidate lsit
 	// After this step: we have the initial edge node candidate list and ready for processing
