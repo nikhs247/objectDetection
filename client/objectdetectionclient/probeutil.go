@@ -361,16 +361,16 @@ func constructNewCandidateList(sortList PairList, testList []*ServerConnection, 
 // Close opened connections (*go can clear them implicitly if we don't handle this)
 
 func cleanUp(garbageList []*ServerConnection) {
-	// Close the unused file descriptors explicitely
-	// Apply a short delay before closing conns to avoid the following case (rarely happen):
-	// 		Close a currently using server in main thread before main thread enters the next critical section
-	// 		This will cause a false server failure and trigger fault tolerance mechanism in main thread
-	// This problem exists for both sequential send/recv and asynchronous send/recv. We can solve it by simply delaying conn termination
-	time.Sleep(1 * time.Second)
-	for i := 0; i < len(garbageList); i++ {
-		garbageList[i].conn.Close()
-		// the rest will be cleaned by Garbage Collector
-	}
+	// // Close the unused file descriptors explicitely
+	// // Apply a short delay before closing conns to avoid the following case (rarely happen):
+	// // 		Close a currently using server in main thread before main thread enters the next critical section
+	// // 		This will cause a false server failure and trigger fault tolerance mechanism in main thread
+	// // This problem exists for both sequential send/recv and asynchronous send/recv. We can solve it by simply delaying conn termination
+	// time.Sleep(1 * time.Second)
+	// for i := 0; i < len(garbageList); i++ {
+	// 	garbageList[i].conn.Close()
+	// 	// the rest will be cleaned by Garbage Collector
+	// }
 }
 
 // Helpers

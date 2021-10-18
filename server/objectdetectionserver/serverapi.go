@@ -54,7 +54,7 @@ func (ts *TaskServer) Join_Request(ctx context.Context, decision *clientToTask.D
 	if decision.LastSate == ts.stateNumber {
 		// After this client actually joins, invoke dummy workload to predict what-if processing time
 		fmt.Println("Join_Request accepted --> invoke dummy workload")
-		go ts.PerformDummyWorkloadWithDelay(300)
+		go ts.PerformDummyWorkloadWithDelay(500)
 		return &clientToTask.JoinResult{
 			Success: true,
 		}, nil
@@ -71,7 +71,7 @@ func (ts *TaskServer) UnexpectedClientJoin(ctx context.Context, emptyMessage *cl
 	// Return this call ASAP since the clinet waits there to continue its service after the faliure switch
 	// Set a delay here to make sure that this server starts to serve the unexpected client
 	fmt.Println("UnexpectedClientJoin --> invoke dummy workload")
-	go ts.PerformDummyWorkload(200, true)
+	go ts.PerformDummyWorkload(300, true)
 	return &clientToTask.EmptyMessage{}, nil
 }
 
@@ -80,7 +80,7 @@ func (ts *TaskServer) EndProcess(ctx context.Context, emptyMessage *clientToTask
 	// Return this call ASAP since the clinet waits there to continue its service after the switch decision
 	// Set a delay here to make sure that this client actually leaves
 	fmt.Println("EndProcess --> invoke dummy workload")
-	go ts.PerformDummyWorkload(200, false)
+	go ts.PerformDummyWorkload(300, false)
 	return &clientToTask.EmptyMessage{}, nil
 }
 
