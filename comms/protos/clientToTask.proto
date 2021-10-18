@@ -10,8 +10,8 @@ option go_package="github.com/nikhs247/objectDetection/comms/rpc/clientToTask";
         rpc RTT_Request(TestPerf) returns (PerfData) {}
         rpc Probe_Request(TestPerf) returns (ProbeResult) {}
         rpc Join_Request(Decision) returns (JoinResult) {}
-        rpc Unexpected_client_join(EmptyMessage) returns (EmptyMessage) {}
-        rpc End_process(EmptyMessage) returns (EmptyMessage) {}
+        rpc UnexpectedClientJoin(EmptyMessage) returns (EmptyMessage) {}
+        rpc EndProcess(EmptyMessage) returns (EmptyMessage) {}
         rpc TestPerformance(TestPerf) returns (PerfData) {}
         rpc SendRecvImage(stream ImageData) returns (stream ProcessResult) {}
     }

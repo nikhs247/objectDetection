@@ -1,14 +1,23 @@
 package objectdetectionclient
 
 import (
+	"context"
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/nikhs247/objectDetection/comms/rpc/appcomm"
+	"github.com/nikhs247/objectDetection/comms/rpc/clientToTask"
 )
 
 const nMultiConn = 3
 
 func Run(appMgrIP string, appMgrPort string, where string, tag string) {
+
+	// Capture the signal
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
 
 	loc := ConvertLocation(where)
 
@@ -24,15 +33,24 @@ func Run(appMgrIP string, appMgrPort string, where string, tag string) {
 		} else {
 			break
 		}
+		fmt.Println("bbbb")
 	}
 
 	// Start an asynchronous routine to periodically update the candidate list
 	go ci.PeriodicDiscoverAndProbing()
 
 	// Start streaming
-	ci.Processing()
+	go ci.Processing()
 
-	fmt.Println("Processing done!")
+	// Wait for signal
+	<-signalChan
+	ci.mutexServerUpdate.Lock()
+	currentService := ci.servers[ci.currentServer].service
+	_, err := currentService.EndProcess(context.Background(), &clientToTask.EmptyMessage{})
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println("Manually close: notify current server of leaving")
 }
 
 func ConvertLocation(where string) *appcomm.Location {

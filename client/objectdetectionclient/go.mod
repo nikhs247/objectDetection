@@ -2,6 +2,8 @@ module github.com/nikhs247/objectDetection/client/objectdetectionclient
 
 go 1.13
 
+replace github.com/nikhs247/objectDetection/comms => ../../comms
+
 require (
 	github.com/google/uuid v1.1.2
 	github.com/nikhs247/objectDetection/comms v0.0.0-20211016180600-23007913d1c2

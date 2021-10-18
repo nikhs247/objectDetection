@@ -110,8 +110,11 @@ Loop:
 	// Processing finished: let server know I'm leaving
 	ci.mutexServerUpdate.Lock()
 	currentService := ci.servers[ci.currentServer].service
-	ci.mutexServerUpdate.Unlock()
 	currentService.EndProcess(context.Background(), &clientToTask.EmptyMessage{})
+
+	// End this process
+	fmt.Println("Processing done!")
+	os.Exit(0)
 }
 
 func (ci *ClientInfo) faultTolerance() {

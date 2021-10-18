@@ -28,13 +28,6 @@ github.com/google/go-cmp v0.4.0/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/
 github.com/google/go-cmp v0.5.0/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/gNBxE=
 github.com/google/uuid v1.1.2 h1:EVhdT+1Kseyi1/pUmXKaFxYsDNy9RQYkMWRH68J/W7Y=
 github.com/google/uuid v1.1.2/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
-github.com/nikhs247/objectDetection v0.0.0-20211017012634-ba078b8e8bb0 h1:nQjUUJUzV3P3tDbFzzu1S8kK3XvJqVPPjzbZcRv4vWk=
-github.com/nikhs247/objectDetection/client/objectdetectionclient v0.0.0-20211017012634-ba078b8e8bb0 h1:9aOgA/eFsle4OcVv0nD/PBHKDlIntw3AsS8o00TP07w=
-github.com/nikhs247/objectDetection/client/objectdetectionclient v0.0.0-20211017012634-ba078b8e8bb0/go.mod h1:2oY2pXy/gOXz7h6Ey6xLbqoiDiWygtOgcdtYBkEyrzE=
-github.com/nikhs247/objectDetection/comms v0.0.0-20211016180600-23007913d1c2 h1:PtG1V4C9AKDqlMBRVkBeqlYPu1PQEymiBi4NumtHmHw=
-github.com/nikhs247/objectDetection/comms v0.0.0-20211016180600-23007913d1c2/go.mod h1:SATREKIqTW9WyfFw2lORVf1l2FxgcSJfsZeQ4LVr/fc=
-github.com/nikhs247/objectDetection/comms v0.0.0-20211017012634-ba078b8e8bb0 h1:F6coIrWgunSPtztJw6gTQXOWbzbfnGmyhhGo+VTY6Kc=
-github.com/nikhs247/objectDetection/comms v0.0.0-20211017012634-ba078b8e8bb0/go.mod h1:SATREKIqTW9WyfFw2lORVf1l2FxgcSJfsZeQ4LVr/fc=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4/go.mod h1:xMI15A0UPsDsEKsMN9yxemIoYk6Tm2C1GtYGdfGttqA=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
@@ -56,7 +49,6 @@ golang.org/x/sync v0.0.0-20180314180146-1d60e4601c6f/go.mod h1:RxMgew5VJxzue5/jJ
 golang.org/x/sync v0.0.0-20181108010431-42b317875d0f/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
 golang.org/x/sync v0.0.0-20190423024810-112230192c58/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
 golang.org/x/sys v0.0.0-20180830151530-49385e6e1522/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
-golang.org/x/sys v0.0.0-20190215142949-d0b11bdaac8a h1:1BGLXjeY4akVXGgbC9HugT3Jv3hCI0z56oJR5vAMgBU=
 golang.org/x/sys v0.0.0-20190215142949-d0b11bdaac8a/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
 golang.org/x/text v0.3.0 h1:g61tztE5qeGQ89tm6NTjjM9VPIm088od1l6aSorWRWg=
 golang.org/x/text v0.3.0/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=

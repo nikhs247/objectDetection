@@ -1,6 +1,7 @@
 package objectdetectionserver
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"log"
@@ -44,6 +45,7 @@ func (ts *TaskServer) PerformDummyWorkloadWithDelay(delay time.Duration) {
 	t1 := time.Now()
 	ts.PerformFrame(ts.dummyWorkload)
 	whatIfTime := time.Since(t1)
+	fmt.Printf("   New what-if performance: %v\n", whatIfTime)
 
 	// Update the what-if processing time
 	ts.whatIfTime = whatIfTime
@@ -71,6 +73,7 @@ func (ts *TaskServer) PerformDummyWorkload(delay time.Duration, joinOrLeave bool
 	t1 := time.Now()
 	ts.PerformFrame(ts.dummyWorkload)
 	whatIfTime := time.Since(t1)
+	fmt.Printf("   New what-if performance: %v\n", whatIfTime)
 
 	// Update the what-if processing time
 	ts.whatIfTime = whatIfTime

@@ -296,7 +296,7 @@ func constructNewCandidateList(sortList PairList, testList []*ServerConnection, 
 
 	if currentlyUseingServerAlive {
 		if len(sortList) >= 2 { // Need to compare the performance for connection switch
-			grace, err := time.ParseDuration("20ms")
+			grace, err := time.ParseDuration("25ms")
 			if err != nil {
 				panic(err)
 			}
