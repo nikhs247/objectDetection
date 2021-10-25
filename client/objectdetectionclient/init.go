@@ -30,6 +30,10 @@ type ClientInfo struct {
 
 	// Lock for shared data structure
 	mutexServerUpdate *sync.Mutex
+
+	// Message channels for client restart
+	stopProbing chan int
+	restart     chan int
 }
 
 func Init(appMgrIP string, appMgrPort string, whereStr string, tag string, n int) *ClientInfo {
@@ -67,6 +71,9 @@ func Init(appMgrIP string, appMgrPort string, whereStr string, tag string, n int
 		currentServer: -1,
 		// Lock
 		mutexServerUpdate: &sync.Mutex{},
+		// Message channels for restart
+		stopProbing: make(chan int),
+		restart:     make(chan int),
 	}
 	return ci
 }

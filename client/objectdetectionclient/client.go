@@ -37,13 +37,18 @@ func Run(appMgrIP string, appMgrPort string, where string, tag string, topN int)
 	// Start streaming
 	go ci.Processing()
 
+	select {
 	// Wait for signal
-	<-signalChan
-	ci.mutexServerUpdate.Lock()
-	currentService := ci.servers[ci.currentServer].service
-	_, err := currentService.EndProcess(context.Background(), &clientToTask.EmptyMessage{})
-	if err != nil {
-		fmt.Println(err)
+	case <-signalChan:
+		ci.mutexServerUpdate.Lock()
+		currentService := ci.servers[ci.currentServer].service
+		_, err := currentService.EndProcess(context.Background(), &clientToTask.EmptyMessage{})
+		if err != nil {
+			fmt.Println(err)
+		}
+		fmt.Println("Manually close: notify current server of leaving")
+		os.Exit(0)
+	case <-ci.restart:
+		return
 	}
-	fmt.Println("Manually close: notify current server of leaving")
 }

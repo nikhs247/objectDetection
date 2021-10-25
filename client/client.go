@@ -25,5 +25,7 @@ func main() {
 		return
 	}
 
-	objectdetectionclient.Run(appMgrIP, appMgrPort, loc, tag, topN)
+	for {
+		objectdetectionclient.Run(appMgrIP, appMgrPort, loc, tag, topN)
+	}
 }

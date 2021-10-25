@@ -66,8 +66,11 @@ Loop:
 					ClientID: ci.id,
 				})
 				if err != nil {
-					ci.faultTolerance()
-					continue Loop
+					if ci.faultTolerance() {
+						continue Loop
+					}
+					fmt.Println("Processing routine stopped")
+					return
 				}
 				// Send the last chunk
 			} else if i == nChunks-1 {
@@ -77,8 +80,11 @@ Loop:
 					ClientID: ci.id,
 				})
 				if err != nil {
-					ci.faultTolerance()
-					continue Loop
+					if ci.faultTolerance() {
+						continue Loop
+					}
+					fmt.Println("Processing routine stopped")
+					return
 				}
 				// Send the regular chunk
 			} else {
@@ -88,8 +94,11 @@ Loop:
 					ClientID: ci.id,
 				})
 				if err != nil {
-					ci.faultTolerance()
-					continue Loop
+					if ci.faultTolerance() {
+						continue Loop
+					}
+					fmt.Println("Processing routine stopped")
+					return
 				}
 			}
 		}
@@ -97,8 +106,11 @@ Loop:
 		// (4) Receive the result
 		_, err := stream.Recv()
 		if err != nil {
-			ci.faultTolerance()
-			continue Loop
+			if ci.faultTolerance() {
+				continue Loop
+			}
+			fmt.Println("Processing routine stopped")
+			return
 		}
 
 		t2 := time.Now()
@@ -115,14 +127,24 @@ Loop:
 	// End this process
 	fmt.Println("Processing done!")
 	os.Exit(0)
+	// TODO: We can restart the client here if we want to maintain the workload
 }
 
-func (ci *ClientInfo) faultTolerance() {
+func (ci *ClientInfo) faultTolerance() bool {
 	ci.mutexServerUpdate.Lock()
 	if ci.currentServer+1 == len(ci.servers) {
+		ci.mutexServerUpdate.Unlock()
 		// Note: This will rarely happen if we add more duplicated connections
-		log.Println("All candidates failed: no available servers and abort")
-		os.Exit(0)
+		fmt.Println("!!!!!! All candidates failed: no available servers and abort")
+
+		// Stop the probing routine
+		ci.stopProbing <- 1
+		fmt.Println("Probing routine stopped")
+		// Stop the main routine
+		ci.restart <- 1
+		fmt.Println("Main routine stopped")
+		// Stop the processing routine
+		return false
 	}
 	ci.currentServer++
 	nextService := ci.servers[ci.currentServer].service
@@ -132,6 +154,7 @@ func (ci *ClientInfo) faultTolerance() {
 	nextService.UnexpectedClientJoin(context.Background(), &clientToTask.EmptyMessage{})
 
 	fmt.Println("! Server just failed: switch to a backup server!!")
+	return true
 }
 
 func split(buf []byte, lim int) [][]byte {
