@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/exec"
-	"strconv"
 	"time"
 
 	"github.com/nikhs247/objectDetection/comms/rpc/clientToTask"
@@ -124,16 +122,6 @@ func (ci *ClientInfo) faultTolerance() {
 	if ci.currentServer+1 == len(ci.servers) {
 		// Note: This will rarely happen if we add more duplicated connections
 		log.Println("All candidates failed: no available servers and abort")
-
-		// Start another client locally to maintain same workload in the system
-		// This can also used to emulate re-start (passive connection) approach
-		// "docker run --rm armadaumn/objectdetectionclient2.0 3.86.179.242 8888 Minneapolis notag 3"
-		clientCMD := "docker run --rm armadaumn/objectdetectionclient2.0 " + ci.appManagerIP + " " + ci.appManagerPort + " " + ci.locString + " " + ci.tag + " " + strconv.Itoa(ci.topN) + " &> " + ci.id[0:5] + ".log"
-		cmd := exec.Command("/bin/sh", "-c", clientCMD)
-		_, err := cmd.Output()
-		if err != nil {
-			log.Println(err)
-		}
 		os.Exit(0)
 	}
 	ci.currentServer++
