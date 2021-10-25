@@ -13,18 +13,15 @@ import (
 
 type ClientInfo struct {
 	// Clinet info
-	id        string
-	tag       string // used to specify LAN resources
-	location  *appcomm.Location
-	locString string
-	appId     *appcomm.UUID
-	topN      int
+	id       string
+	tag      string // used to specify LAN resources
+	location *appcomm.Location
+	appId    *appcomm.UUID
+	topN     int
 
 	// Application manager info
 	appManagerConn    *grpc.ClientConn // keep this pointer so that we can close it at the end
 	appManagerService appcomm.ApplicationManagerClient
-	appManagerIP      string
-	appManagerPort    string
 
 	// Shared data structure
 	// Current selected server and 3 server slots
@@ -58,17 +55,14 @@ func Init(appMgrIP string, appMgrPort string, whereStr string, tag string, n int
 	// (3) Construct the ClientInfo
 	ci := &ClientInfo{
 		// Client info
-		id:        clientId,
-		tag:       tag,
-		location:  where,
-		locString: whereStr,
-		appId:     whichApp,
-		topN:      n,
+		id:       clientId,
+		tag:      tag,
+		location: where,
+		appId:    whichApp,
+		topN:     n,
 		// Application Manager info
 		appManagerConn:    appConn,
 		appManagerService: appService,
-		appManagerIP:      appMgrIP,
-		appManagerPort:    appMgrPort,
 		// Initialize candidate list info
 		currentServer: -1,
 		// Lock
