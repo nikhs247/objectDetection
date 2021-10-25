@@ -7,7 +7,6 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/nikhs247/objectDetection/comms/rpc/appcomm"
 	"github.com/nikhs247/objectDetection/comms/rpc/clientToTask"
 )
 
@@ -17,10 +16,8 @@ func Run(appMgrIP string, appMgrPort string, where string, tag string, topN int)
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
 
-	loc := ConvertLocation(where)
-
 	// Initialize the client
-	ci := Init(appMgrIP, appMgrPort, loc, tag, topN)
+	ci := Init(appMgrIP, appMgrPort, where, tag, topN)
 
 	// Probing nearby available edge servers and construct candidate lsit
 	// After this step: we have the initial edge node candidate list and ready for processing
@@ -49,26 +46,4 @@ func Run(appMgrIP string, appMgrPort string, where string, tag string, topN int)
 		fmt.Println(err)
 	}
 	fmt.Println("Manually close: notify current server of leaving")
-}
-
-func ConvertLocation(where string) *appcomm.Location {
-	// Hardcode for converting geo-location for now
-	var loc *appcomm.Location
-	if where == "Minneapolis" { // Minneapolis: close
-		loc = &appcomm.Location{
-			Lat: 44.98,
-			Lon: -93.24,
-		}
-	} else if where == "Duluth" { // Duluth: far
-		loc = &appcomm.Location{
-			Lat: 46.79,
-			Lon: -92.11,
-		}
-	} else {
-		loc = &appcomm.Location{ // Rochester: other
-			Lat: 44.02,
-			Lon: -92.47,
-		}
-	}
-	return loc
 }
