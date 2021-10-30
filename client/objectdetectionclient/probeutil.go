@@ -296,7 +296,7 @@ func (ci *ClientInfo) constructNewCandidateList(sortList PairList, testList []*S
 
 	if currentlyUseingServerAlive {
 		if len(sortList) >= 2 { // Need to compare the performance for connection switch
-			grace, err := time.ParseDuration("20ms")
+			grace, err := time.ParseDuration("15ms")
 			if err != nil {
 				panic(err)
 			}

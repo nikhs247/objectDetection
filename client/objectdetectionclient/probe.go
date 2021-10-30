@@ -63,10 +63,10 @@ func (ci *ClientInfo) DiscoverAndProbing() error {
 
 func (ci *ClientInfo) PeriodicDiscoverAndProbing() {
 	rand.Seed(time.Now().UTC().UnixNano())
-	queryListTicker := time.NewTicker(5*time.Second + time.Duration(rand.Float32()*2)*(time.Second))
+	queryListTicker := time.NewTicker(4*time.Second + time.Duration(rand.Float32()*2)*(time.Second))
 	for {
 		select {
-		// Periodic query is [5 - 7] seconds
+		// Periodic query is [4 - 6] seconds
 		case <-queryListTicker.C:
 			for {
 				err := ci.DiscoverAndProbing()
@@ -77,7 +77,7 @@ func (ci *ClientInfo) PeriodicDiscoverAndProbing() {
 				}
 			}
 			rand.Seed(time.Now().UTC().UnixNano())
-			queryListTicker = time.NewTicker(5*time.Second + time.Duration(rand.Float32()*2)*(time.Second))
+			queryListTicker = time.NewTicker(4*time.Second + time.Duration(rand.Float32()*2)*(time.Second))
 		// Close this routine upon failure
 		case <-ci.stopProbing:
 			return
