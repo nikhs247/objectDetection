@@ -21,7 +21,7 @@ func (ci *ClientInfo) queryAppManager() []*appcomm.Task {
 		AppId:       ci.appId,
 	})
 	if err != nil {
-		log.Println("Application manager fails")
+		log.Println("^ " + err.Error())
 		os.Exit(0)
 	}
 	return list.GetTaskList()
@@ -283,7 +283,7 @@ func (ci *ClientInfo) constructSortList(testList []*ServerConnection, garbageLis
 		}
 		sortList = append(sortList, Pair{i, performance})
 		// DEBUG
-		log.Printf("Probing %d: RTT [%v]; Process [%v]; Total [%v]", i, rtt_time, process_time, performance)
+		log.Printf("& Probing %d: RTT [%v]; Process [%v]; Total [%v]", i, rtt_time, process_time, performance)
 	}
 	// Compare the performance of these servers
 	sort.Sort(sortList)
@@ -296,7 +296,7 @@ func (ci *ClientInfo) constructNewCandidateList(sortList PairList, testList []*S
 
 	if currentlyUseingServerAlive {
 		if len(sortList) >= 2 { // Need to compare the performance for connection switch
-			grace, err := time.ParseDuration("25ms")
+			grace, err := time.ParseDuration("20ms")
 			if err != nil {
 				panic(err)
 			}

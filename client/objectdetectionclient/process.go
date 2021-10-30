@@ -11,13 +11,13 @@ import (
 	"gocv.io/x/gocv"
 )
 
-func (ci *ClientInfo) Processing() {
+func (ci *ClientInfo) Processing(startTime time.Time) {
 	// Set up video source [camera or video file]
 	videoPath := "video/vid.avi"
 	video, err := gocv.VideoCaptureFile(videoPath)
 	if err != nil {
 		log.Printf("Error opening video capture file: %s\n", videoPath)
-		return
+		os.Exit(0)
 	}
 	defer video.Close()
 	img := gocv.NewMat()
@@ -34,8 +34,13 @@ Loop:
 	for {
 		// (1) Capture the frame at this iteration to be sent
 		if ok := video.Read(&img); !ok {
-			fmt.Printf("Video closed: %v\n", videoPath)
-			break
+			// To extend the experiment time: if the video hits end, we re-open the video
+			video, err = gocv.VideoCaptureFile(videoPath)
+			if err != nil {
+				log.Printf("Error opening video capture file: %s\n", videoPath)
+				os.Exit(0)
+			}
+			continue
 		}
 		if img.Empty() {
 			continue
@@ -69,7 +74,6 @@ Loop:
 					if ci.faultTolerance() {
 						continue Loop
 					}
-					fmt.Println("Processing routine stopped")
 					return
 				}
 				// Send the last chunk
@@ -83,7 +87,6 @@ Loop:
 					if ci.faultTolerance() {
 						continue Loop
 					}
-					fmt.Println("Processing routine stopped")
 					return
 				}
 				// Send the regular chunk
@@ -97,7 +100,6 @@ Loop:
 					if ci.faultTolerance() {
 						continue Loop
 					}
-					fmt.Println("Processing routine stopped")
 					return
 				}
 			}
@@ -109,25 +111,15 @@ Loop:
 			if ci.faultTolerance() {
 				continue Loop
 			}
-			fmt.Println("Processing routine stopped")
 			return
 		}
 
 		t2 := time.Now()
+		elapsedFromStart := time.Since(startTime)
 
 		// Print out the frame latency
-		fmt.Printf("* %s %v \n", whichIp, t2.Sub(t1))
+		fmt.Printf("* %s %v %v \n", whichIp, elapsedFromStart, t2.Sub(t1))
 	}
-
-	// Processing finished: let server know I'm leaving
-	ci.mutexServerUpdate.Lock()
-	currentService := ci.servers[ci.currentServer].service
-	currentService.EndProcess(context.Background(), &clientToTask.EmptyMessage{})
-
-	// End this process
-	fmt.Println("Processing done!")
-	os.Exit(0)
-	// TODO: We can restart the client here if we want to maintain the workload
 }
 
 func (ci *ClientInfo) faultTolerance() bool {
@@ -135,14 +127,12 @@ func (ci *ClientInfo) faultTolerance() bool {
 	if ci.currentServer+1 == len(ci.servers) {
 		ci.mutexServerUpdate.Unlock()
 		// Note: This will rarely happen if we add more duplicated connections
-		fmt.Println("!!!!!! All candidates failed: no available servers and abort")
+		fmt.Println("$ All candidates failed: no available servers and abort")
 
 		// Stop the probing routine
 		ci.stopProbing <- 1
-		fmt.Println("Probing routine stopped")
 		// Stop the main routine
 		ci.restart <- 1
-		fmt.Println("Main routine stopped")
 		// Stop the processing routine
 		return false
 	}

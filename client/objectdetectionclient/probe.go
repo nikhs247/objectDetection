@@ -23,7 +23,7 @@ func (ci *ClientInfo) DiscoverAndProbing() error {
 	// (1) Query available edge nodes from Application Manager
 	taskList := ci.queryAppManager()
 	if len(taskList) == 0 {
-		return errors.New("no available edge node")
+		return errors.New("no available edge node [This error won't happen now, since query fails if 0 available in appManager]")
 	}
 
 	// (2) Get currently-using server and candidate list
@@ -71,7 +71,7 @@ func (ci *ClientInfo) PeriodicDiscoverAndProbing() {
 			for {
 				err := ci.DiscoverAndProbing()
 				if err != nil {
-					fmt.Println(err.Error())
+					fmt.Println("# Repeat DiscoverAndProbing() - error: " + err.Error())
 				} else {
 					break
 				}

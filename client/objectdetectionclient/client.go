@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/nikhs247/objectDetection/comms/rpc/clientToTask"
 )
@@ -19,23 +20,25 @@ func Run(appMgrIP string, appMgrPort string, where string, tag string, topN int)
 	// Initialize the client
 	ci := Init(appMgrIP, appMgrPort, where, tag, topN)
 
+	// Globle timestamp base point for print
+	startTime := time.Now()
+
 	// Probing nearby available edge servers and construct candidate lsit
 	// After this step: we have the initial edge node candidate list and ready for processing
 	for {
 		err := ci.DiscoverAndProbing()
 		if err != nil {
-			fmt.Println(err.Error())
+			fmt.Println("# Repeat DiscoverAndProbing() - error: " + err.Error())
 		} else {
 			break
 		}
-		fmt.Println("bbbb")
 	}
 
 	// Start an asynchronous routine to periodically update the candidate list
 	go ci.PeriodicDiscoverAndProbing()
 
 	// Start streaming
-	go ci.Processing()
+	go ci.Processing(startTime)
 
 	select {
 	// Wait for signal
@@ -44,9 +47,9 @@ func Run(appMgrIP string, appMgrPort string, where string, tag string, topN int)
 		currentService := ci.servers[ci.currentServer].service
 		_, err := currentService.EndProcess(context.Background(), &clientToTask.EmptyMessage{})
 		if err != nil {
-			fmt.Println(err)
+			fmt.Println("^ " + err.Error())
 		}
-		fmt.Println("Manually close: notify current server of leaving")
+		fmt.Println("^ Manually close: notify current server of leaving")
 		os.Exit(0)
 	case <-ci.restart:
 		return

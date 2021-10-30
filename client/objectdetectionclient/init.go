@@ -51,7 +51,7 @@ func Init(appMgrIP string, appMgrPort string, whereStr string, tag string, n int
 	opts = append(opts, grpc.WithInsecure())
 	appConn, err := grpc.Dial(appMgrIP+":"+appMgrPort, opts...)
 	if err != nil {
-		log.Println("Fail to connect appManager at the beginning")
+		log.Println("^ Fail to connect appManager at the beginning")
 		os.Exit(0)
 	}
 	appService := appcomm.NewApplicationManagerClient(appConn)
